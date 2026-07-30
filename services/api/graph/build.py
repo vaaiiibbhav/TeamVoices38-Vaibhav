@@ -133,10 +133,10 @@ async def evaluate(state: AgentState) -> AgentState:
 
 
 def route_after_evaluate(state: AgentState) -> str:
-    if state["missing_slots"]:
-        return "clarify"
     if state["confidence"] >= CONF_ANSWER_THRESHOLD:
         return "answer"
+    if state["missing_slots"]:
+        return "clarify"
     if state["confidence"] >= CONF_CLARIFY_THRESHOLD:
         return "clarify"
     return "triage"

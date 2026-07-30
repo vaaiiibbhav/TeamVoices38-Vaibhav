@@ -102,13 +102,21 @@ data/golden_questions.yaml 25 eval questions with expected doc/page/band
   a leave submission** — `slots.py`'s `REQUIRED_SLOTS["od_leave_request"] =
   ["event_date", "event_reason"]` applies unconditionally, even to a pure
   policy-lookup question ("which email do I use, is there a cap") that isn't
-  filing anything. `route_after_evaluate` checks `missing_slots` before
-  confidence, so these questions get diverted to `clarify`'s hardcoded
-  no-citation template without ever reaching the cited answer. Traced
-  2026-07-30 (see below) — not fixed. Don't add more OD-leave golden
-  questions phrased as policy lookups without knowing this will misroute
-  them; if you fix this, it needs the intent split into two shapes (lookup
-  vs. actual request) or a way to tell them apart before slot-gating.
+  filing anything. Traced 2026-07-30, **routing fixed 2026-07-31**:
+  `route_after_evaluate` no longer force-overrides a confidence score that
+  already clears `CONF_ANSWER_THRESHOLD` just because `missing_slots` is
+  non-empty — slot completeness stays a weighted confidence input (0.15),
+  not a separate hard gate on top of it. Verified via 3 cases (policy-lookup,
+  the slot-missing regression case, and a new submission-style
+  strong-retrieval case) — no regressions; see the eval-run entry below for
+  the real numbers. **This did not make the policy-lookup golden question
+  route `answer`, though** — that question's retrieval score (0.7398) sits
+  independently below what's needed to clear 0.80 regardless of the slot
+  gate, so it still routes `clarify`, just for a different and legitimate
+  reason now. That's a separate, still-open retrieval-scoring gap, not a
+  routing bug — not chased further yet. If you revisit this, it needs
+  better retrieval (or the intent split into lookup vs. actual-request
+  shapes) rather than more routing changes.
 - Don't let the demo UI's Relevance/Jailbreak guardrails stand in for the
   confidence model — they're an input filter, not grounding. Keep both,
   don't conflate them.
@@ -613,3 +621,34 @@ to change daily.
     for the fine amounts or the PDA scope, per the same unconfirmed-gap
     policy. Full end-to-end eval (citation accuracy, confidence band)
     against these 2 new entries not yet run.
+  - **`route_after_evaluate` slot-gating fix, 2026-07-31** —
+    `graph/build.py`. `missing_slots` no longer force-overrides a
+    confidence score that already clears `CONF_ANSWER_THRESHOLD`; it now
+    only forces `clarify` when confidence is *below* that bar. Slot
+    completeness stays what it was designed to be — a weighted input to
+    the composite score (0.15) — not a separate hard gate stacked on top
+    of it. Verified two ways: (1) `route_after_evaluate` called directly
+    with synthetic states — `confidence=0.80/0.85` + missing slots now
+    correctly returns `answer`; `confidence=0.799/0.71` + missing slots
+    still correctly returns `clarify`; the no-missing-slots path is
+    unaffected. (2) three real end-to-end cases, each run 3-6x for
+    stability, not once: the policy-lookup question (case 1), the
+    slot-missing regression case (case 2, "I need to request OD leave for
+    a hackathon"), and a new submission-style strong-retrieval case
+    (case 3, "I need OD for the robotics hackathon") — all stable
+    run-to-run, **no regressions**. Case 3 specifically stress-tests the
+    scenario this fix could break (a genuine submission with a missing
+    slot slipping through to `answer` because confidence is otherwise
+    high): it lands at a stable 0.501 (well below threshold,
+    `answer_support=0.0` every run because the LLM treats a declarative
+    "I need X" as unanswerable from policy context), so no regression
+    risk observed.
+    **Important: this fix does not resolve the policy-lookup golden
+    question's `clarify` routing.** Its retrieval score (`0.7398`,
+    deterministic/embedding-based) sits independently below what's needed
+    to clear `CONF_ANSWER_THRESHOLD=0.80` regardless of the slot gate —
+    confirmed by 6 repeated runs all landing at 0.743-0.769 even with
+    near-perfect entailment (~0.80-0.83). That's a separate, still-open
+    retrieval-scoring gap for this specific question, not a routing bug,
+    and it was **not chased further** this pass — flagged for whoever
+    next tunes retrieval, not fixed here.
