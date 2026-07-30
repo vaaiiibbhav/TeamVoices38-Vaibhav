@@ -1,0 +1,49 @@
+# Phase 6 golden question set — build_spec.md wants 25, expected intent/doc/
+# page/confidence band each, including an out-of-scope question and a
+# deliberately-superseded-circular question (to trigger CONFLICTING_SOURCES).
+#
+# This is scaffolding, not the full set: a handful of real entries against
+# the current single-doc placeholder corpus
+# (data/seed_pdfs/examination_regulations_PLACEHOLDER.pdf), enough to prove
+# scripts/eval_retrieval.py runs end-to-end and produces real numbers. Most
+# of this gets rewritten once real university PDFs replace the placeholder
+# — expect_doc/expect_page below all point at the placeholder, not a real
+# policy document.
+#
+# expect_band is the intended/target route (answer|clarify|triage) for a
+# correctly-tuned system — NOT necessarily what the system currently
+# returns. Confidence thresholds are not being tuned yet (see CLAUDE.md
+# Phase 6 status): a mismatch between expect_band and the eval script's
+# observed route is expected and informative, not a bug to chase this pass.
+
+questions:
+  - q: "What is the minimum attendance percentage required to sit for the end-semester exam?"
+    expect_intent: attendance_query
+    expect_doc: examination_regulations_PLACEHOLDER
+    expect_page: 1
+    expect_band: answer
+
+  - q: "I missed my end-semester exam because I was hospitalised — can I get a re-test?"
+    expect_intent: exam_policy
+    expect_doc: examination_regulations_PLACEHOLDER
+    expect_page: 2
+    expect_band: answer
+
+  - q: "I need OD leave approved for an inter-college cultural fest on 2026-10-05, can you check the eligibility rules?"
+    expect_intent: od_leave_request
+    expect_doc: examination_regulations_PLACEHOLDER
+    expect_page: 3
+    expect_band: answer
+
+  - q: "Can you reset my WiFi password, it's not connecting to the campus network?"
+    expect_intent: out_of_scope
+    expect_doc: null
+    expect_page: null
+    expect_band: triage
+
+  - q: "Does the re-test policy for a missed exam still apply if the original circular has been superseded by a newer one?"
+    expect_intent: exam_policy
+    expect_doc: null
+    expect_page: null
+    expect_band: clarify
+    skip: "needs a second, deliberately-superseded document to actually trigger CONFLICTING_SOURCES/STALE_DOCUMENT — corpus is single-doc until real PDFs land (see CLAUDE.md Phase 6 status). Entry documents the intended case; eval_retrieval.py skips executing it."
