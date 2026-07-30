@@ -47,17 +47,19 @@ export function ChatKitPanel({
     },
     initialThread: initialThreadId ?? null,
     startScreen: {
-      greeting: "Hi! I'm your airline assistant. How can I help today?",
+      greeting: "Hi! I'm the CampusFlow AI helpdesk assistant. How can I help today?",
       prompts: [
-        { label: "Change my seat", prompt: "Can you move me to seat 14C?" },
         {
-          label: "Flight status",
-          prompt: "What's the status of flight FLT-123?",
+          label: "OD/leave request",
+          prompt: "I need to apply for on-duty leave for a family event next week.",
         },
         {
-          label: "Missed connection",
-          prompt:
-            "My flight from Paris to New York was delayed and I missed my connection to Austin. Also, my checked bag is missing and I need to spend the night in New York. Can you help me?",
+          label: "Exam policy",
+          prompt: "What's the attendance requirement to sit for the end-semester exam?",
+        },
+        {
+          label: "Hostel allocation",
+          prompt: "Who do I contact about hostel room allocation?",
         },
       ],
     },

@@ -76,4 +76,5 @@ the domain logic throughout — is original to this project.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The `ui/` shell carries its own upstream notice —
+see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

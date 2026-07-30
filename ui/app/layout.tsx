@@ -7,11 +7,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Airlines Agent Orchestration",
-  description: "An interface for airline agent orchestration",
-  icons: {
-    icon: "/openai_logo.svg",
-  },
+  title: "CampusFlow AI",
+  description: "Chat console and inspector for the CampusFlow AI campus helpdesk agent",
 };
 
 export default function RootLayout({
