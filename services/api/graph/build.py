@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from langgraph.graph import END, StateGraph
 
 from services.api.db.tickets import create_ticket
+from services.api.gateway.approval import propose
 from services.api.graph.confidence import compute_confidence
 from services.api.graph.routing import SLA_HOURS, compute_priority, route_department
 from services.api.graph.slots import CAMPUS_INTENTS, missing_slots
@@ -54,6 +55,7 @@ def initial_state(question: str, trace_id: str) -> AgentState:
         answer=None,
         pending_approval=False,
         ticket_id=None,
+        proposal_id=None,
     )
 
 
@@ -174,10 +176,27 @@ async def triage(state: AgentState) -> AgentState:
     )
 
 
+def route_after_triage(state: AgentState) -> str:
+    """od_leave_request can only reach triage with event_date/event_reason
+    already present — route_after_evaluate sends any missing-slot question
+    to clarify first. The explicit slot check documents that invariant
+    instead of relying on it silently."""
+    if state["intent"] == "od_leave_request" and state["slots"].get("event_date"):
+        return "propose_action"
+    return "end"
+
+
 async def propose_action(state: AgentState) -> AgentState:
-    """Reserved for Phase 5. Not wired into any edge yet — no Phase 2 intent
-    determines when a side-effecting action should be proposed."""
-    return step(state, "propose_action")
+    payload = {
+        "ticket_id": state["ticket_id"],
+        "department": route_department(state["intent"]),
+        "event_date": state["slots"].get("event_date"),
+        "event_reason": state["slots"].get("event_reason"),
+    }
+    proposal_id = await propose(
+        action_type="calendar_event", ticket_id=state["ticket_id"], payload=payload
+    )
+    return step(state, "propose_action", proposal_id=proposal_id)
 
 
 async def await_approval(state: AgentState) -> AgentState:
@@ -207,7 +226,11 @@ def build_graph():
     )
     graph.add_edge("answer", END)
     graph.add_edge("clarify", END)
-    graph.add_edge("triage", END)
+    graph.add_conditional_edges(
+        "triage",
+        route_after_triage,
+        {"propose_action": "propose_action", "end": END},
+    )
     graph.add_edge("propose_action", "await_approval")
     graph.add_edge("await_approval", END)
 

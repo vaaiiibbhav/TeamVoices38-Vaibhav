@@ -35,6 +35,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str | None
     ticket_id: str | None
+    proposal_id: str | None
     inspector: InspectorPayload
 
 
@@ -48,6 +49,7 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
     return ChatResponse(
         answer=result["answer"],
         ticket_id=result["ticket_id"],
+        proposal_id=result["proposal_id"],
         inspector=build_inspector_payload(result, latency_ms),
     )
 
