@@ -712,3 +712,32 @@ to change daily.
     level recall had been checked when it was authored) — not a
     regression from tonight's edit, just the first real exercise of an
     already-documented gap.
+  - **Session close, 2026-07-31.** Final full eval: recall@5 **14/14**,
+    citation accuracy **12/14**, band match **13/15** (15 executable; the
+    16th, superseded-circular, still `skip`ped). The 2 `ERR` lines are
+    both `od_leave_request` questions ("which email... cap" and the
+    escalation-chain one) and both trace to the same single open gap,
+    confirmed twice tonight, not two separate bugs: `REQUIRED_SLOTS`
+    demands `event_date`/`event_reason` for every `od_leave_request`
+    question regardless of whether it's a submission or a policy lookup,
+    and that penalty (0.15 weight, worse when both slots are missing) is
+    enough on its own to keep confidence under `CONF_ANSWER_THRESHOLD`
+    even when retrieval and entailment are both solid. Everything else in
+    the corpus (12 of 14 scoreable questions, all non-OD-leave intents)
+    passes cleanly. Three concrete things landed this session on top of
+    that open gap: (1) `route_after_evaluate` fixed so `missing_slots`
+    only forces `clarify` below the confidence bar, not unconditionally —
+    verified safe, no regressions, but doesn't by itself clear either
+    OD-leave question since confidence falls short of 0.80 independent of
+    the gate either way; (2) the OD-leave retrieval-dilution investigation
+    and hedge-sentence edit — real content-level cause found and
+    documented, the attempted fix didn't move the score (a genuine,
+    reported-not-hidden negative result), and a reusable lesson recorded
+    (isolated-sentence ablation doesn't predict combined-chunk embedding
+    behavior for this model); (3) escalation-chain content added to
+    `od_leave_policy.pdf`/`hostel_facilities.pdf` with 2 new golden
+    questions. **If `od_leave_request` slot-gating gets revisited next:**
+    the fix needs to distinguish lookup-shaped questions from
+    submission-shaped ones before applying `REQUIRED_SLOTS` — not another
+    routing or retrieval-score tweak, both of those levers have now been
+    tried honestly and neither moves this gap on its own.
