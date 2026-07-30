@@ -840,3 +840,55 @@ to change daily.
     the full eval once quota resets, before the actual demo** — same
     caveat repeated for the third time this session now; this is the
     single most load-bearing unresolved item heading into a demo.
+  - **The full eval above ran, for real, 2026-07-31** — `.env` temporarily
+    switched to local Ollama (`llama3.2`, not `llama3.1:8b` — that's what
+    `CLAUDE.md`'s Stack section names, but only `llama3.2:latest` is
+    actually pulled on this machine, confirmed via `ollama list`) to get
+    past Groq's quota. Real numbers: recall@5 **21/21**, citation accuracy
+    **12/21**, band match **17/22**. Of the 6 new user-confirmed-fact
+    questions specifically:
+    **Passed clean end-to-end (3):** "What happens if a student's
+    attendance in a course falls below 75%?" (attendance debarment);
+    "Is a makeup exam available as a substitute if I got an F grade?"
+    (makeup exam); "What time do I need to be back in my hostel room by,
+    and what happens if I'm late?" (hostel curfew).
+    **Failed — pre-existing slot-gating gap, not new (1):** "Does the
+    5-OD cap reset each semester, or is it a one-time total for my whole
+    degree?" — `missing_slots=['event_date','event_reason']`, the same
+    `od_leave_request` gap documented above. Not touched.
+    **Failed — a new bug category, found only on this run (2):** "What
+    does an F grade mean and how many marks is it?" and "What does the
+    23BCE prefix in my registration number mean?" — both traced directly
+    (raw answer, retrieved sources, `enforce_citations` output, before
+    concluding anything).
+    **New bug category: citation attribution errors** — correct marker
+    *syntax* (plain ASCII `[n]`, always valid, never out of range), but
+    the marker points at the *wrong* source, or two different sources'
+    facts get blended into one sentence with a single misattributed
+    marker. F-grade case: the answer correctly stated the fact from
+    source `[1]` (`examination_services` p3) but cited `[3]` (an
+    unrelated curriculum-PDF chunk) instead. Registration-number case: a
+    run-on sentence correctly stated the registration-number fact (source
+    `[1]`, `academic_system_ffcs` p2) then appended an unrelated fragment
+    about application forms (source `[2]`, `examination_services`) into
+    the *same* sentence, citing only `[2]` for the whole thing.
+    **This is a model-capability limitation, not a `postprocess.py`
+    defect** — `enforce_citations`' marker-parsing, range-checking, and
+    renumbering logic is confirmed working correctly against both models;
+    both failures here produced syntactically valid, in-range markers
+    that the post-processor correctly left in place, because the defect
+    is upstream, in which source number the LLM chose to associate with a
+    fact, not in how the marker was written or processed. Both failures
+    only appeared on `llama3.2` (a ~3B-class model) — not observed on
+    Groq's `gpt-oss-120b` in any run this session. **Practical
+    implication:** if the live demo ever falls back to the local model
+    (per the documented Groq → OpenRouter → Ollama fallback chain in
+    Stack), expect *measurably weaker citation reliability* from that
+    fallback, not just slower responses — a real, now-quantified
+    trade-off of the offline path, distinct from every citation-mechanics
+    bug fixed earlier this session (all of which were format/parsing bugs
+    that reproduced on Groq too). **Not fixed, not planned before demo** —
+    documented as a known characteristic of the fallback path, same
+    treatment as the other deferred items above. `.env` reverted to Groq
+    immediately after this run and confirmed live via a real smoke-test
+    completion, not just restoring the file.
