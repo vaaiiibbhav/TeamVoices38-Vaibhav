@@ -30,21 +30,28 @@ def enforce_citations(
         sentence = sentence.strip()
         if not sentence:
             continue
-        valid_markers = [
-            n
-            for n in (int(m) for m in _MARKER_RE.findall(sentence))
-            if 1 <= n <= len(sources)
-        ]
-        if not valid_markers:
+        markers = [int(m) for m in _MARKER_RE.findall(sentence)]
+        if not markers:
+            continue
+        # A sentence with even one out-of-range marker is treated exactly
+        # like a sentence with no marker at all — not meaningfully different.
+        if any(not (1 <= n <= len(sources)) for n in markers):
             continue
         kept_sentences.append(sentence)
-        for n in valid_markers:
+        for n in markers:
             if n not in cited_indices:
                 cited_indices.append(n)
 
     if not kept_sentences:
         return INSUFFICIENT_CONTEXT, []
 
-    final_answer = " ".join(kept_sentences)
-    cited_sources = [sources[n - 1] for n in sorted(cited_indices)]
+    cited_indices.sort()
+    cited_sources = [sources[n - 1] for n in cited_indices]
+    # cited_sources is a compacted subset of the original sources, so a
+    # surviving "[n]" must be renumbered to n's new (1-based) position here —
+    # otherwise the marker still points at its old index into a shorter list.
+    renumber = {old: new for new, old in enumerate(cited_indices, start=1)}
+    final_answer = _MARKER_RE.sub(
+        lambda m: f"[{renumber[int(m.group(1))]}]", " ".join(kept_sentences)
+    )
     return final_answer, cited_sources

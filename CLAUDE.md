@@ -302,6 +302,123 @@ to change daily.
     not recognized`) — needs backslashes. `npm run dev` from `ui/` now
     starts both servers standalone, verified from a fresh shell (not just
     the ad hoc background commands used earlier).
-  - `data/seed_pdfs/examination_regulations_PLACEHOLDER.pdf` is synthetic,
-    flagged in the file itself, needs replacing with real university PDFs
-    before the demo.
+  - **Real corpus swapped in 2026-07-29.** `examination_regulations_PLACEHOLDER.pdf`
+    renamed to `.pdf.bak` (kept, not deleted) and excluded from ingestion.
+    Real corpus is now 7 files: two pasted-in real PDFs
+    (`Curriculum_Student_BTECH-BCE-2023_23BCE11700_...pdf`,
+    `Mini-Brochure-2026.pdf`) plus five PDFs authored from
+    `data/vitbhopal_raw/` source material (VIT Bhopal screenshots + a raw
+    text dump) in the same title/chapter/clause structure as the old
+    placeholder: `examination_services.pdf`, `library_services.pdf`,
+    `hostel_facilities.pdf`, `placement_and_training.pdf`,
+    `academic_system_ffcs.pdf`. Deliberately excluded from the corpus:
+    marketing/leadership-bio content and a campus-life card page (no
+    citable policy value), and a VTOP screenshot of one specific logged-in
+    student's live attendance/CGPA (personal academic data, not official
+    policy — wrong thing to embed as a "citable source").
+    Re-ingested against the local embedded Qdrant store (wiped
+    `services/api/qdrant_data/` first so no stale placeholder-only vectors
+    lingered): **19 chunks total** — `examination_services.pdf` 2,
+    `library_services.pdf` 1, `hostel_facilities.pdf` 3,
+    `placement_and_training.pdf` 4, `academic_system_ffcs.pdf` 1,
+    the curriculum PDF 8, `Mini-Brochure-2026.pdf` **0**.
+    Section-label smoke test: all 11 chunks from the 5 authored docs landed
+    with real `Chapter N — Title` section labels (verified via direct
+    Qdrant payload scroll, not just eyeballing the PDFs) — zero `General`
+    defaulting there. Two real findings, not fixed, just reported per this
+    task's scope: (1) the curriculum PDF's 8 chunks **all** land as
+    `General` — it's a VTOP tabular data export ("CREDIT INFO", per-course
+    tables), not chaptered prose, so `ingest.py`'s
+    `Chapter\s+\d+\s*[—-]\s*.+` regex has nothing to match; this is a real
+    gap in section-label coverage for tabular documents, not a bug in the
+    regex itself. (2) `Mini-Brochure-2026.pdf` is a fully scanned/image-only
+    PDF — `page.get_text()` returns 0 characters on all 12 pages, so it
+    contributes 0 chunks until OCR'd; it currently sits in the corpus
+    inert. Neither fixed yet — flagged for whoever tunes retrieval next.
+  - **golden_questions.yaml rewritten against the real corpus, 2026-07-29.**
+    Every expect_doc/expect_page below was cross-checked against
+    `data/vitbhopal_raw/Raw Info.txt` and the 4 policy screenshots directly
+    — not just against the generated PDF text — specifically to catch
+    transcription drift from the PDF-generation script. It caught one real
+    bug: `academic_system_ffcs.pdf`'s original clause 1.1 said a student's
+    timetable choice was "subject to seat availability" — that phrase is in
+    neither source; fabricated during generation. Fixed (clause reworded to
+    match the source exactly) and re-ingested before writing the golden set.
+    The 3 old placeholder-doc entries were retired (that doc is renamed
+    `.bak` and out of the index now); replaced with 8 entries across the 5
+    real docs, 1-2 per doc. The out-of-scope (WiFi) and skip
+    (superseded-circular) entries are unchanged.
+    **Ran `scripts/eval_retrieval.py` — real numbers, not projected:**
+    recall@5 **8/8**, citation accuracy **5/8**, band match **7/8** (over
+    the 8 real-doc questions; see below for why the 9th, out-of-scope,
+    entry didn't complete).
+    Two real findings from this run, not fixed, just reported:
+    (1) **A real citation-integrity bug**, not a corpus gap: 3 of the 8
+    citation misses aren't retrieval misses (recall was 8/8) — the
+    rendered answer cited a marker like `[2]` or `[3]` when only 1 source
+    was actually returned, printed by the eval script as `!! marker [n]
+    out of range for N returned sources`. The post-processor (Non-negotiable
+    #1: "every factual sentence carries a citation") strips sentences
+    lacking a `[n]` marker entirely, but doesn't validate that the marker
+    number is actually in range for the returned source list — an
+    out-of-range marker slips through as if it were a real citation. Worth
+    the next Phase 6 pass fixing directly in the post-processor, not
+    per-answer.
+    (2) The "hostel email contact" question (expect_band `answer`) routed
+    `clarify` instead — a real band mismatch, not chased further this pass
+    since confidence thresholds are explicitly still untouched.
+    **The out-of-scope (WiFi) golden entry crashed the eval run**, not a
+    corpus issue: its `expect_band: triage` path calls `create_ticket()`,
+    which needs Postgres — Docker Desktop was not running on this machine
+    at eval time (confirmed via `docker info` and `tasklist`), and starting
+    it (launched, polled ~4 min) didn't bring the daemon up in time. Did
+    not chase further since it's an unrelated environment gap, not a corpus
+    or eval-logic defect; the 8 real-doc questions all completed and their
+    numbers above are unaffected by it.
+  - **Citation-integrity bug found by the above eval fixed, 2026-07-29** —
+    `rag/postprocess.py`'s `enforce_citations`. Root cause was narrower and
+    different from what it first looked like: it wasn't that out-of-range
+    markers went unchecked (a bound check already existed); it's that
+    `cited_sources` is a **compacted, re-indexed** subset of the retrieved
+    sources (e.g. only source `[2]` of 5 ever gets cited -> `cited_sources`
+    becomes a 1-item list), while the surviving sentence text kept the
+    **original** marker number (`[2]`) unchanged — guaranteed to look
+    out-of-range downstream the instant only some of the original sources
+    survive. Confirmed by instrumenting the 3 failing golden questions
+    directly (raw LLM answer, retrieved sources, and `enforce_citations`'s
+    output) before touching any code — 2 of 3 cited a marker that was valid
+    against the original 5-source list but invalid against the compacted
+    one. Fixed by (1) dropping a sentence whole if *any* marker in it is
+    out of range, not just when *none* are (the literal ask), and (2)
+    renumbering surviving markers to match their new position in
+    `cited_sources` (the actual fix for the observed symptom). Self-check:
+    `tests/test_postprocess.py` (4 assertions, `python
+    tests/test_postprocess.py`).
+    **Re-ran the 3 previously-failing golden questions**: 2 of 3 fixed —
+    "Girls Hostel building size" and "2023 highest placement package" both
+    now cite correctly. The 3rd, "who do I email for hostel allocation",
+    is still broken, but for an unrelated reason the fix doesn't touch: the
+    LLM's raw answer that run used non-ASCII citation brackets
+    (`【1】`, full-width) that `_MARKER_RE` (ASCII `\[(\d+)\]` only) never
+    matches, so the whole answer gets treated as uncited ->
+    `INSUFFICIENT_CONTEXT`. That's the same question already flagged with
+    a band mismatch (`clarify` instead of `answer`) — left alone per this
+    task's explicit instruction not to touch that question or confidence
+    thresholds yet.
+    **Docker Desktop was not actually installed at the path CLAUDE.md
+    expected** (`C:\Program Files\Docker\Docker\Docker Desktop.exe` doesn't
+    exist on this machine) — the real install is
+    `C:\Users\<user>\AppData\Local\Programs\DockerDesktop\Docker
+    Desktop.exe`. Found via `where docker` + a dir listing after two failed
+    launch attempts at the wrong path. Started from the correct path,
+    confirmed `docker info` succeeds, then `docker compose up -d postgres`
+    + `pg_isready` before re-running the full eval.
+    **Full eval re-run, Docker/Postgres genuinely up this time — real
+    numbers, not projected:** recall@5 **8/8**, citation accuracy **7/8**
+    (up from 5/8; not 8/8 — see the hostel-email caveat above), band match
+    **8/9** (the out-of-scope/WiFi entry now completes end-to-end,
+    `route=triage` as expected — no crash this time; the 9th entry, the
+    superseded-circular question, stays `skip`ped, no doc is tagged
+    superseded yet). Confidence thresholds and the hostel-email band
+    mismatch still untouched, per instruction — that's the next step, not
+    this one.
