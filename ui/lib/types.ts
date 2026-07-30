@@ -50,3 +50,28 @@ export interface GuardrailCheck {
   passed: boolean
   timestamp: Date
 }
+
+export interface Source {
+  doc_id: string
+  doc_title: string
+  page: number
+  section: string
+  snippet: string
+  score: number
+  header: string
+}
+
+export interface InspectorPayload {
+  trace_id: string
+  confidence: number
+  breakdown: Record<string, number>
+  reason_codes: string[]
+  next_step_hint: string
+  route: string
+  path: string[]
+  intent: string | null
+  slots: Record<string, string>
+  sources: Source[]
+  latency_ms: number
+  pending_approval: boolean
+}

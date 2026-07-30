@@ -133,3 +133,6 @@ node_modules/
 # ui stuff
 
 ui/.next/
+
+# local embedded Qdrant storage (Phase 1 dev fallback, no Docker on this machine)
+services/api/qdrant_data/
