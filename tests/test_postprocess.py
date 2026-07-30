@@ -44,4 +44,18 @@ answer, cited = enforce_citations("First [4]. Second [1].", sources)
 assert answer == "First [2]. Second [1].", answer
 assert cited == [sources[0], sources[3]]
 
+# Full-width CJK brackets (a real, observed model quirk, e.g. "【1】") must be
+# recognized exactly like ASCII "[1]" and normalized back to ASCII on output.
+answer, cited = enforce_citations("You should email hostelinfo@vitbhopal.ac.in【1】.", sources)
+assert answer == "You should email hostelinfo@vitbhopal.ac.in[1].", answer
+assert cited == [sources[0]]
+
+# A marker placed right after a mid-sentence period (a real, observed model
+# quirk) must not tear the fact away from its own marker.
+answer, cited = enforce_citations(
+    "The building covers 17,467 sq.mt. [2] and it is a six-storey structure. [2]", sources
+)
+assert answer == "The building covers 17,467 sq.mt. [1] and it is a six-storey structure. [1]", answer
+assert cited == [sources[1]]
+
 print("test_postprocess: all assertions passed")

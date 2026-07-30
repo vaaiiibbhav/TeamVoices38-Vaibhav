@@ -4,6 +4,7 @@ conf >= 0.80 -> answer; 0.55-0.80 -> clarify; < 0.55 -> triage.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timedelta, timezone
 
 from langgraph.graph import END, StateGraph
@@ -18,6 +19,14 @@ from services.api.llm.client import complete
 from services.api.rag.postprocess import enforce_citations
 from services.api.rag.prompts import INSUFFICIENT_CONTEXT, build_answer_messages
 from services.api.rag.search import search
+
+# Phase 6 calibration pass (2026-07-29): real golden-question confidence values
+# (7 genuine "answer" cases at 0.82-0.93, 1 genuine "triage" case at 0.51) hold
+# up both thresholds as-is — the values were previously hardcoded literals
+# here, disconnected from these same-named .env settings. Wired for real now;
+# not moved, since the data doesn't call for moving them.
+CONF_ANSWER_THRESHOLD = float(os.getenv("CONF_ANSWER_THRESHOLD", "0.80"))
+CONF_CLARIFY_THRESHOLD = float(os.getenv("CONF_CLARIFY_THRESHOLD", "0.55"))
 
 CLASSIFY_SYSTEM_PROMPT = f"""Classify the student's question into exactly one \
 campus intent and extract any slot values explicitly present in the question.
@@ -126,9 +135,9 @@ async def evaluate(state: AgentState) -> AgentState:
 def route_after_evaluate(state: AgentState) -> str:
     if state["missing_slots"]:
         return "clarify"
-    if state["confidence"] >= 0.80:
+    if state["confidence"] >= CONF_ANSWER_THRESHOLD:
         return "answer"
-    if state["confidence"] >= 0.55:
+    if state["confidence"] >= CONF_CLARIFY_THRESHOLD:
         return "clarify"
     return "triage"
 

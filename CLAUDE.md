@@ -422,3 +422,82 @@ to change daily.
     superseded yet). Confidence thresholds and the hostel-email band
     mismatch still untouched, per instruction — that's the next step, not
     this one.
+  - **Hostel-email band mismatch traced, 2026-07-29 — not a threshold or
+    retrieval problem.** Instrumented the question directly (classify_intent
+    -> retrieve -> evaluate, no code touched): `retrieval=0.785` (solid,
+    correct top source), `slot_completeness=1.0`, but `answer_support=0.0`
+    -> `confidence=0.614`, landing in `clarify`. Root cause: the LLM's raw
+    answer for this question reliably (3/3 identical repeats) used
+    full-width brackets (`【1】`) instead of ASCII `[1]`, which
+    `postprocess.py`'s `_MARKER_RE` never matches, so `enforce_citations`
+    strips the only sentence and the answer collapses to
+    `INSUFFICIENT_CONTEXT` before confidence is even computed — the same
+    citation-formatting defect flagged in the previous entry, just
+    surfacing through `answer_support` instead of an out-of-range marker
+    this time. A **second, independent data point emerged for free**: a
+    follow-up full sweep of all 9 golden questions (to gather real
+    confidence values for calibration) showed the *Girls Hostel* question
+    — clean in the prior run — fail the same way this run instead. The
+    failure isn't tied to one question's wording; it's a general
+    intermittent LLM output-formatting lapse that can hit any question on
+    any given call. Confirms this needs a genuine fix (accept more marker
+    formats, or tighten the answer prompt), not a threshold change — no
+    threshold value can compensate for an answer that gets stripped to
+    nothing. Not fixed this pass, per instruction (still paired with the
+    calibration step below, not touched separately).
+  - **Phase 6 confidence-threshold calibration pass, 2026-07-29 — real
+    data says leave both values where they are.** Full sweep of all 9
+    executable golden questions' actual confidence values: the 7 genuine
+    "answer"-band questions clustered tightly at **0.82-0.93**; the one
+    genuine "triage"-band question (out-of-scope/WiFi) sat at **0.51**.
+    `CONF_ANSWER_THRESHOLD=0.80` sits ~0.02 below the good cluster's floor;
+    `CONF_CLARIFY_THRESHOLD=0.55` sits ~0.04 above the one real triage
+    point — both already fit the real distribution with a real (if thin)
+    margin on 9 data points. The only mismatch (hostel-email, 0.614) is the
+    citation-formatting bug traced above, not a genuine low-confidence
+    case — lowering `CONF_ANSWER_THRESHOLD` to absorb it would mask that
+    bug and lower the bar for every other real production answer, which is
+    the wrong trade given Non-negotiable #2. **Conclusion: no threshold
+    values changed.** What *did* change: `CONF_ANSWER_THRESHOLD` /
+    `CONF_CLARIFY_THRESHOLD` were defined in `.env`/`.env.example` but
+    **never read anywhere in the code** — `graph/build.py`'s
+    `route_after_evaluate` hardcoded `0.80`/`0.55` as literals, fully
+    disconnected from those env vars. Wired them for real
+    (`os.getenv(..., "0.80")` / `os.getenv(..., "0.55")` at module load, used
+    in place of the literals) so a future tuning pass can actually change
+    behavior by editing `.env` — confirmed a behavioral no-op via
+    `py_compile` + a full eval re-run (recall@5 stayed 8/8; citation/band
+    counts shifted slightly run-to-run, but that's the same LLM-formatting
+    flakiness above, not this wiring — the retrieval-only recall number,
+    unaffected by LLM variance, is unchanged).
+  - **Both citation-formatting bugs fixed at the source, 2026-07-30** —
+    `rag/postprocess.py`. (1) The full-width-bracket bug: `_MARKER_RE`
+    widened to also match CJK-style `【n】` (not just ASCII `[n]`); the
+    existing renumbering substitution already writes ASCII brackets back
+    out, so this normalizes for free. `rag/prompts.py`'s system prompt also
+    now explicitly says ASCII brackets only, with an example — a first line
+    of defense, not the fix itself, since the whole point is this can't be
+    trusted to hold LLM-side. (2) A **second, independently-discovered**
+    bug surfaced while stress-testing the first fix: `_SENTENCE_SPLIT_RE`'s
+    lookahead treated `[`/`【` as a valid "next sentence starts here"
+    signal, so a marker placed right after a mid-sentence period (e.g.
+    `"...sq.mt. [2] and it is a six-storey structure. [2]"`) got split into
+    its own segment, tearing it away from the fact it supports — that fact
+    then reads as uncited and gets dropped, degrading the answer's content
+    (not just its citation) and dragging `answer_support` down enough to
+    misroute to `clarify`. Fixed by dropping `[`/`【` from the lookahead
+    entirely (verified nothing else relies on splitting there). Both fixes
+    covered by `tests/test_postprocess.py` (6/6 assertions, 2 new
+    regression cases added for these exact failure strings).
+    **Full repeated 9-question sweep for both citation fixes
+    (bracket-format + sentence-split) not yet completed** — blocked by
+    Groq's daily 200k TPD quota, hit twice during verification (usage
+    barely moved in 5 minutes between hits — a real daily cap, not a short
+    burst). Current evidence: unit tests (6/6, including the two real-
+    failure regression tests) and partial live spot-checks (bracket fix:
+    3/3 full sweeps; sentence-split fix: proven broken via a 20-sample
+    stress test showing 2/20 failures pre-fix — both the same mechanism —
+    then 1/1 clean immediately post-fix before the quota cut further
+    testing off). Re-run the full sweep 2-3x once quota resets (check
+    timing) or before final demo rehearsal, whichever comes first — **do
+    not skip this before the actual demo.**

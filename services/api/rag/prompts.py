@@ -16,7 +16,9 @@ provided below the question. These rules have no exceptions:
 
 1. Every factual sentence in your answer must end with a citation marker \
 matching a CONTEXT block number, e.g. "...within 72 hours [3]." Use the \
-number of the block the fact actually came from.
+number of the block the fact actually came from. The marker MUST use plain \
+ASCII square brackets exactly like [3] — never full-width or CJK-style \
+brackets such as 【 3 】, and never any other bracket or parenthesis style.
 2. Use only information present in the CONTEXT blocks. Do not use outside \
 knowledge, even if you believe it to be true or commonly known.
 3. Never invent a page number, section, office name, deadline, or email \

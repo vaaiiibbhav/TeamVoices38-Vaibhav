@@ -10,8 +10,16 @@ import re
 from services.api.rag.prompts import INSUFFICIENT_CONTEXT
 from services.api.rag.schemas import Source
 
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[])")
-_MARKER_RE = re.compile(r"\[(\d+)\]")
+# Lookahead deliberately excludes "[" / "【": a citation marker placed right
+# after a sentence's period ("...sq.mt. [2] and it is...") would otherwise
+# get split into its own segment, tearing the marker away from the fact it
+# supports and dropping that fact as if it were uncited.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
+# Some models emit CJK full-width brackets (【 】, "【1】") instead of
+# ASCII "[1]" for citation markers — matched here too so a model formatting
+# quirk can't silently zero out a correct citation. The final substitution
+# below always writes ASCII brackets back out, normalizing either style.
+_MARKER_RE = re.compile(r"[\[【]\s*(\d+)\s*[\]】]")
 
 
 def enforce_citations(
