@@ -6,7 +6,7 @@
     },
     "postgres": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://readonly_user:pass@localhost:5432/campusflow"]
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"]
     },
     "playwright": {
       "command": "npx",

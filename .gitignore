@@ -139,3 +139,9 @@ services/api/qdrant_data/
 
 # Playwright MCP browser-check artifacts (screenshots/snapshots from manual verification)
 .playwright-mcp/
+
+# raw source material for seed PDFs (screenshots/scraped text, not the corpus itself)
+data/vitbhopal_raw/
+scratch_*.py
+scratch_debug_out.*
+data/seed_pdfs/*.bak

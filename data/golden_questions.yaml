@@ -2,38 +2,90 @@
 # page/confidence band each, including an out-of-scope question and a
 # deliberately-superseded-circular question (to trigger CONFLICTING_SOURCES).
 #
-# This is scaffolding, not the full set: a handful of real entries against
-# the current single-doc placeholder corpus
-# (data/seed_pdfs/examination_regulations_PLACEHOLDER.pdf), enough to prove
-# scripts/eval_retrieval.py runs end-to-end and produces real numbers. Most
-# of this gets rewritten once real university PDFs replace the placeholder
-# — expect_doc/expect_page below all point at the placeholder, not a real
-# policy document.
+# Real corpus swapped in 2026-07-29 (see CLAUDE.md): the placeholder is
+# renamed to .pdf.bak and excluded from ingestion; the entries below target
+# the 5 real PDFs authored from data/vitbhopal_raw/ (Raw Info.txt + the 4
+# VIT Bhopal policy screenshots). Every expect_doc/expect_page/expect_intent
+# below was verified against Raw Info.txt / the screenshots directly, not
+# just against the generated PDF text — this caught one real drift bug
+# (academic_system_ffcs.pdf's original 1.1 clause invented "subject to seat
+# availability", a detail present in neither source; fixed and re-ingested
+# before writing this file). Still scaffolding, not the full 25 — one entry
+# per single-page doc, two per multi-page doc.
 #
 # expect_band is the intended/target route (answer|clarify|triage) for a
 # correctly-tuned system — NOT necessarily what the system currently
-# returns. Confidence thresholds are not being tuned yet (see CLAUDE.md
-# Phase 6 status): a mismatch between expect_band and the eval script's
-# observed route is expected and informative, not a bug to chase this pass.
+# returns. Confidence thresholds are still not being tuned (next step after
+# these numbers land, per explicit instruction) — a mismatch between
+# expect_band and the eval script's observed route is expected and
+# informative, not a bug to chase this pass.
 
 questions:
-  - q: "What is the minimum attendance percentage required to sit for the end-semester exam?"
-    expect_intent: attendance_query
-    expect_doc: examination_regulations_PLACEHOLDER
+  - q: "What responsibilities does the Controller of Examinations office have for transcripts and degree certificates?"
+    expect_intent: certificate_request
+    expect_doc: examination_services
     expect_page: 1
     expect_band: answer
+    # source: Raw Info.txt lines 237-238 ("Issue of Transcripts." / "Preparation of
+    # Degree Certificates.") -> examination_services.pdf Chapter 1, clause 1.4.
 
-  - q: "I missed my end-semester exam because I was hospitalised — can I get a re-test?"
-    expect_intent: exam_policy
-    expect_doc: examination_regulations_PLACEHOLDER
+  - q: "Which application form do I need to submit to request a supplementary examination?"
+    expect_intent: certificate_request
+    expect_doc: examination_services
     expect_page: 2
     expect_band: answer
+    # source: Screenshot (690) "APPLICATION FORM FOR SUPPLEMENTARY EXAMINATION"
+    # download button -> examination_services.pdf Chapter 2, clause 2.1.
 
-  - q: "I need OD leave approved for an inter-college cultural fest on 2026-10-05, can you check the eligibility rules?"
-    expect_intent: od_leave_request
-    expect_doc: examination_regulations_PLACEHOLDER
+  - q: "What library automation software does VIT Bhopal's Central Library use, and can I self-issue a book?"
+    expect_intent: library_query
+    expect_doc: library_services
+    expect_page: 1
+    expect_band: answer
+    # source: Raw Info.txt ("...KOHA 19.05...RFID technology with self-issue and
+    # return kiosk, WEB-OPAC...") -> library_services.pdf Chapter 1, clause 1.4.
+
+  - q: "How big is the Girls Hostel building at VIT Bhopal and how many floors does it have?"
+    expect_intent: hostel_issue
+    expect_doc: hostel_facilities
+    expect_page: 2
+    expect_band: answer
+    # source: Raw Info.txt ("The 6 storied Girls Hostel Building in an area of
+    # 17,467 Sq.mt...") -> hostel_facilities.pdf Chapter 2, clause 2.1.
+
+  - q: "Who do I email if I have a question about hostel allocation?"
+    expect_intent: hostel_issue
+    expect_doc: hostel_facilities
     expect_page: 3
     expect_band: answer
+    # source: Raw Info.txt ("HOSTELS hostelinfo@vitbhopal.ac.in") -> hostel_facilities.pdf
+    # Chapter 3, clause 3.1.
+
+  - q: "What was the highest placement package VIT Bhopal's 2023 passouts received?"
+    expect_intent: placement_query
+    expect_doc: placement_and_training
+    expect_page: 2
+    expect_band: answer
+    # source: Raw Info.txt ("2023 Passouts / 59 LPA / Highest Package") ->
+    # placement_and_training.pdf Chapter 2, clause 2.4.
+
+  - q: "Since what year has VIT Bhopal placed students in international internships, and how many per year on average?"
+    expect_intent: placement_query
+    expect_doc: placement_and_training
+    expect_page: 3
+    expect_band: answer
+    # source: Raw Info.txt ("...instrumental in providing international internships
+    # and placement offers since 2015...average of 10 students every year...") ->
+    # placement_and_training.pdf Chapter 3, clause 3.3.
+
+  - q: "Under VIT Bhopal's Fully Flexible Credit System, can a student choose their own faculty and class timings?"
+    expect_intent: general_info
+    expect_doc: academic_system_ffcs
+    expect_page: 1
+    expect_band: answer
+    # source: Raw Info.txt ("...a student can prepare his/her own timetable with the
+    # specific courses...along with the timings of classes and choice of
+    # professors.") -> academic_system_ffcs.pdf Chapter 1, clause 1.1 (post-fix).
 
   - q: "Can you reset my WiFi password, it's not connecting to the campus network?"
     expect_intent: out_of_scope
@@ -46,4 +98,4 @@ questions:
     expect_doc: null
     expect_page: null
     expect_band: clarify
-    skip: "needs a second, deliberately-superseded document to actually trigger CONFLICTING_SOURCES/STALE_DOCUMENT — corpus is single-doc until real PDFs land (see CLAUDE.md Phase 6 status). Entry documents the intended case; eval_retrieval.py skips executing it."
+    skip: "needs a second, deliberately-superseded document to actually trigger CONFLICTING_SOURCES/STALE_DOCUMENT — no doc in the corpus is tagged superseded yet. Entry documents the intended case; eval_retrieval.py skips executing it."
