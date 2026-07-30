@@ -27,6 +27,7 @@ class InspectorPayload(BaseModel):
     sources: list[Source]
     latency_ms: float
     pending_approval: bool
+    ticket_id: str | None
 
 
 def _next_step_hint(state: AgentState) -> str:
@@ -56,4 +57,5 @@ def build_inspector_payload(state: AgentState, latency_ms: float) -> InspectorPa
         sources=state["sources"],
         latency_ms=latency_ms,
         pending_approval=state["pending_approval"],
+        ticket_id=state["ticket_id"],
     )

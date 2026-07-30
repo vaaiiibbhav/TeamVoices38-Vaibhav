@@ -28,3 +28,4 @@ class AgentState(TypedDict):
 
     answer: str | None
     pending_approval: bool
+    ticket_id: str | None

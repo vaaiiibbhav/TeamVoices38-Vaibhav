@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from services.api.db.tickets import list_tickets
 from services.api.graph.build import app as agent_graph
 from services.api.graph.build import initial_state
 from services.api.graph.inspector import InspectorPayload, build_inspector_payload
@@ -33,6 +34,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str | None
+    ticket_id: str | None
     inspector: InspectorPayload
 
 
@@ -45,5 +47,22 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
 
     return ChatResponse(
         answer=result["answer"],
+        ticket_id=result["ticket_id"],
         inspector=build_inspector_payload(result, latency_ms),
     )
+
+
+@app.get("/api/admin/tickets")
+async def admin_tickets(
+    department: str | None = None,
+    priority: str | None = None,
+    status: str | None = None,
+) -> list[dict]:
+    tickets = await list_tickets(
+        department=department, priority=priority, status=status
+    )
+    return [
+        {**t, "id": str(t["id"]), "sla_due_at": t["sla_due_at"].isoformat(),
+         "created_at": t["created_at"].isoformat()}
+        for t in tickets
+    ]

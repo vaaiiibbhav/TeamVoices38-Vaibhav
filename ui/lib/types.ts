@@ -61,6 +61,18 @@ export interface Source {
   header: string
 }
 
+export interface Ticket {
+  id: string
+  intent: string
+  department: string
+  priority: "URGENT" | "HIGH" | "MEDIUM" | "LOW"
+  status: string
+  subject: string
+  description: string
+  sla_due_at: string
+  created_at: string
+}
+
 export interface InspectorPayload {
   trace_id: string
   confidence: number
@@ -74,4 +86,5 @@ export interface InspectorPayload {
   sources: Source[]
   latency_ms: number
   pending_approval: boolean
+  ticket_id: string | null
 }

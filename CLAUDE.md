@@ -104,10 +104,34 @@ data/golden_questions.yaml 25 eval questions with expected doc/page/band
 Update this section as you go — it's the one part of this file that's meant
 to change daily.
 
-- **Phase:** Phase 3 (Inspector) complete. Phase 4 (triage/tickets): DB layer
-  (schema + migration) verified live 2026-07-29 — see below. Rest of Phase 4
-  (triage/ticket nodes) not started. Not started: Phase 5 (approval gateway).
-- **Last gate passed:** Phase 3 — `/dev-chat` renders all five sidebar
+- **Phase:** Phase 3 (Inspector) complete. Phase 4 (triage/tickets) complete
+  as of 2026-07-29 — DB layer, ticket creation, and admin dashboard all
+  verified live in a real browser via Playwright MCP (see below), not just
+  compiled/curled. Deliberately still out of scope for Phase 4 (not
+  blockers, just not built): no route exposes `ticket_id` back to the chat
+  client or Inspector; no staff auth on `/admin` or `/api/admin/tickets`;
+  no ticket-detail/status-update UI, list-only. Now starting: Phase 5
+  (approval gateway) — `gateway/policy.py` risk tiers, `gateway/
+  approval.py`'s propose/decide/execute with the proposal_id-only executor
+  design from the blueprint, and the staff approval inbox UI.
+- **Last gate passed:** Phase 4 — `/admin` browser-verified live 2026-07-29
+  via Playwright MCP (see full detail below): SLA countdown re-renders
+  live off the 1s interval (confirmed two snapshots apart, e.g. `OVERDUE by
+  2h 54m` → `2h 55m`), department/priority/status filters actually refetch
+  and narrow the result set (not just render — selecting "Hostel
+  Administration" cut 10 tickets to 3, all matching), priority badge color
+  matches real priority value across every row (URGENT=red destructive,
+  HIGH=blue primary, MEDIUM=gray secondary, LOW=outline, checked via
+  computed styles on all 10 rows, no mismatches), and the closed-but-
+  past-due seed ticket renders `closed (was 1d 0h late)` in muted gray, not
+  the red `OVERDUE` treatment used for open tickets. Also fixed and
+  reverified in the same pass: initial page load flashed `0 tickets / No
+  tickets match these filters` for one frame before the fetch resolved,
+  because `loading` started `false` and only flipped `true` inside the
+  data-fetching `useEffect`. Changed to `useState(true)` — first paint now
+  shows `Loading...` instead of the misleading empty state, confirmed by
+  re-navigating and snapshotting immediately post-navigation.
+- **Previous gate:** Phase 3 — `/dev-chat` renders all five sidebar
   components (`ConfidenceGauge`, `SourceCards`, `PathBreadcrumbs`,
   `ConversationContext`, `Guardrails`) against real live responses, not the
   `EMPTY_INSPECTOR` fallback: a slot-missing OD-leave question showed 71%
@@ -189,6 +213,34 @@ to change daily.
     `<table> is append-only: <OP> not allowed` from
     `reject_update_delete()`, and the row was unchanged after both
     attempts. Same trigger is bound to `ticket_events` and `approvals`.
+  - **Ticket creation + admin dashboard — added 2026-07-29.** New:
+    `services/api/db/pool.py` (asyncpg pool), `services/api/db/tickets.py`
+    (`create_ticket`/`list_tickets`, raw SQL — no ORM, matches migrations),
+    `services/api/db/seed_tickets.py` (8 fake tickets spanning every
+    department/priority/status, one overdue, one imminent, one closed-but-
+    past-due to confirm closed tickets don't alarm), `ui/app/admin/page.tsx`
+    (department/priority/status filters, client-side live SLA countdown
+    ticking every second off `sla_due_at`). `graph/build.py`'s `triage`
+    node now calls `routing.route_department` / `compute_priority` and
+    inserts a real `tickets` row (`AgentState` gained `ticket_id`) instead
+    of just computing an unused department string. Verified live, not just
+    read-through: sent a hostel-issue question through the real
+    `/api/chat/message` route (only doc in the corpus is exam policy, so
+    confidence bottomed out) — response routed `triage`, and `psql`
+    confirmed a new `tickets` row with `department = 'Hostel
+    Administration'`, `priority = 'MEDIUM'`, `sla_due_at` = created +48h,
+    matching `routing.py`'s mapping and `SLA_HOURS`. `GET
+    /api/admin/tickets` (with department/priority/status query params)
+    verified via curl directly and through the Next.js `/api/:path*` proxy,
+    both returning real seeded + live-created rows. `tests/test_routing.py`
+    added as a plain-assert self-check on the department/priority mapping
+    (no pytest in this venv; run with `python tests/test_routing.py`).
+    **Browser-verified 2026-07-29** via Playwright MCP once it reconnected
+    — see the Phase 4 gate note above for the specific checks (live
+    countdown, working filters, correct badge colors, closed-ticket
+    handling, loading-state fix). `/admin` and `/api/admin/tickets` still
+    have no auth — anyone who can reach the backend can list tickets; not
+    a blocker for Phase 4, tracked as a gap above.
   - **The real venv is `campus-helpdesk-agent\venv\`** (this repo root),
     not `..\.venv\` one level up at the `Campus Helpdesk Triage Agent\`
     parent folder — that one's a stray empty venv from earlier setup,

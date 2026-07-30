@@ -4,10 +4,13 @@ conf >= 0.80 -> answer; 0.55-0.80 -> clarify; < 0.55 -> triage.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from langgraph.graph import END, StateGraph
 
+from services.api.db.tickets import create_ticket
 from services.api.graph.confidence import compute_confidence
+from services.api.graph.routing import SLA_HOURS, compute_priority, route_department
 from services.api.graph.slots import CAMPUS_INTENTS, missing_slots
 from services.api.graph.state import AgentState
 from services.api.llm.client import complete
@@ -50,6 +53,7 @@ def initial_state(question: str, trace_id: str) -> AgentState:
         path=[],
         answer=None,
         pending_approval=False,
+        ticket_id=None,
     )
 
 
@@ -147,11 +151,27 @@ async def clarify(state: AgentState) -> AgentState:
 
 
 async def triage(state: AgentState) -> AgentState:
+    intent = state["intent"] or "general_info"
+    department = route_department(intent)
+    priority = compute_priority(intent)
+    sla_due_at = datetime.now(timezone.utc) + timedelta(hours=SLA_HOURS[priority])
+    ticket_id = await create_ticket(
+        intent=intent,
+        department=department,
+        priority=priority,
+        subject=f"[{intent}] {state['question'][:80]}",
+        description=state["question"],
+        sla_due_at=sla_due_at,
+    )
+    ticket_ref = f"TKT-{ticket_id[:8].upper()}"
     message = (
         "I can't confidently answer this from the indexed policies. "
-        "This has been flagged for staff review."
+        f"This has been flagged for staff review — your request has been "
+        f"logged as ticket {ticket_ref}."
     )
-    return step(state, "triage", route="triage", answer=message)
+    return step(
+        state, "triage", route="triage", answer=message, ticket_id=ticket_id
+    )
 
 
 async def propose_action(state: AgentState) -> AgentState:
