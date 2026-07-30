@@ -61,7 +61,7 @@ services/api/actions/      Composio (or SMTP fallback) — same gate either way
 services/api/db/           models, migrations
 apps/web/                  Next.js — chat console, admin console, inspector
 data/seed_pdfs/            corpus for ingestion
-data/golden_questions.yaml 25 eval questions with expected doc/page/band
+data/golden_questions.yaml 23 eval questions (1 skipped) with expected doc/page/band
 ```
 
 ## House rules
@@ -89,10 +89,14 @@ data/golden_questions.yaml 25 eval questions with expected doc/page/band
 - Don't add `ratel` or any tool-pruning layer yet. At ~12–15 tools the token
   savings are negligible; it's a Phase 7 stretch item at most, not
   infrastructure to build around.
-- Don't drift into IT-helpdesk scope (WiFi resets, password resets,
-  hardware tickets, cafeteria hours). The domain is campus operations:
-  exams, attendance, OD/leave, hostel, fees, certificates, placement,
-  library.
+- Don't drift into IT-helpdesk scope (password resets, hardware tickets,
+  cafeteria hours). The domain is campus operations: exams, attendance,
+  OD/leave, hostel, fees, certificates, placement, library. **One narrow,
+  deliberate exception carved out 2026-07-31, per explicit instruction:**
+  "who do I contact for a WiFi issue" is in scope (`it_services.pdf`,
+  answer: contact CTS) — troubleshooting/resets are still out of scope.
+  Don't read this as an opening to add other IT-helpdesk content; it's one
+  named exception, not a softened boundary.
 - **This corpus is VIT Bhopal, B.Tech CSE (the "BCE" programme) specifically**
   — the OD contact email, curriculum PDF, and fee/attendance figures are all
   BCE-scoped. Other branches and M.Tech are out of scope for this build; that's
@@ -741,3 +745,98 @@ to change daily.
     submission-shaped ones before applying `REQUIRED_SLOTS` — not another
     routing or retrieval-score tweak, both of those levers have now been
     tried honestly and neither moves this gap on its own.
+  - **Batch of user-confirmed facts authored, 2026-07-31 — none of it is
+    in `data/vitbhopal_raw/`.** A current student supplied these directly;
+    cross-checked against `Raw Info.txt` and the new `Raw Info 2.txt`
+    anyway per instruction, and neither mentions any of it. **New source
+    finding:** `Raw Info 2.txt` (added this session) turned out to be
+    entirely VIT **Vellore** blog content — FFCS mechanics, Vellore
+    room-counselling by NCGPA, Vellore mess menus, Riviera/Gravitas fest
+    writeups, VITEEE 2019 admissions — explicitly Vellore-named throughout
+    ("For Vellore, Pincode is - 632014", Vellore hostel building names,
+    etc.), not Bhopal-specific, and not used for any of this pass's
+    content. **Per-campus authoring rule going forward:** policies are the
+    same across VIT campuses per the student, but place/facility
+    references (buildings, specific staff, specific offices) are not —
+    when authoring from Vellore-sourced material, state the policy as
+    general VIT policy without asserting Bhopal-specific implementation,
+    and name the source campus explicitly if a place-specific detail is
+    used. Nothing in this pass drew from Vellore material, so this is a
+    rule for next time, not something exercised yet.
+    **Changes, all cross-checked (nothing here is grounded in the raw
+    corpus, all authored per direct instruction):**
+    (1) `od_leave_policy.pdf` clause 1.3 — the "renewal period not
+    confirmed" hedge **removed**, now states the 5-OD cap renews every
+    semester as confirmed fact.
+    (2) `attendance_policy.pdf` clause 1.2 — the old sliding-marks-scale
+    content **removed entirely** (not just re-hedged); now states the
+    confirmed flat rule: below 75% attendance → debarred from that
+    course's exam, must re-register the course, no makeup exam substitutes
+    for the eligibility threshold. Clause 1.1 also updated to state the
+    75% threshold covers both exam eligibility *and* full attendance
+    marks.
+    (3) `examination_services.pdf` +Chapter 3 (new topic, not previously
+    covered) — grading scale S/A/B/C/D/E/F/N high to low; F = below 40
+    marks in the TEE; N = debarred/malpractice/absent; a makeup exam is
+    held once a year, only as a supplementary-exam replacement when the
+    original result was F.
+    (4) `hostel_facilities.pdf` +clause 5.3 — 8:30 PM hostel curfew, ID
+    card confiscation for lateness, fine amount unconfirmed (same
+    unconfirmed-amount treatment as 5.1/5.2). **The PDA-fine scope
+    ambiguity in clause 5.2 (hostel-specific vs. campus-wide) is still
+    unresolved** — the student mentioned a "PDA code of conduct PPT" as
+    attached, but no such file exists in `data/vitbhopal_raw/` (checked
+    directly, only the usual screenshots/webp/two .txt files are there);
+    flagged back, not silently dropped, and clause 5.2 was left untouched
+    rather than guessed past.
+    (5) `academic_system_ffcs.pdf` +Chapter 2 — registration-number
+    convention (batch/branch prefix, e.g. "23BCE" = BCE branch, 2023
+    admit batch, followed by a unique per-student number; 4-year-programme
+    passout-year inference, e.g. 2023 batch → 2027). Confirmed as a
+    stable general convention by the student (not one student's specific
+    number) before writing it in — this was an explicit confirm-first
+    gate per the task instructions, asked and answered before authoring.
+    (6) **New doc `it_services.pdf`** — Chapter 1, one clause: WiFi
+    connectivity issues → contact CTS by email or visit their office in
+    the Academic Block (no specific email address stated; not invented).
+    This is the one narrow, deliberate carve-out from the IT-helpdesk
+    exclusion in "What NOT to do" above — added only after flagging the
+    conflict and getting explicit confirmation to proceed, not silently.
+    **Real, observed consequence of (6), not anticipated:** the existing
+    WiFi golden question ("Can you reset my WiFi password...") — previously
+    a deliberate out-of-scope/triage proof case — now genuinely clears
+    `CONF_ANSWER_THRESHOLD` (0.821-0.834 across 2 real runs) and routes
+    `answer`, citing `it_services.pdf`. Updated that golden entry to match
+    reality, and added a new out-of-scope proof entry (a laptop-hardware
+    question, confirmed via a real run: confidence 0.501, routes `triage`)
+    so the guardrail-demonstration coverage that entry used to provide
+    isn't lost. **Also found in that same real run, not fixed:** the LLM's
+    generated answer expanded "CTS" to "Campus Technology Services (CTS)"
+    — an invented expansion of an acronym that only ever appears
+    unexpanded in the source clause, despite the system prompt's explicit
+    rule against inventing unstated details (`rag/prompts.py` rule 3). A
+    real, observed grounding lapse, structurally the same category of
+    problem as the citation-formatting bugs fixed earlier this session,
+    just manifesting as invented *content* instead of a malformed
+    *citation marker*. Not chased further — flagged for whoever next
+    tightens the answer prompt or looks at entailment scoring.
+    **Re-ingested** (6 docs re-upserted, no wipe needed — no doc's page
+    count shrank, so no orphaned points risk): **29 chunks** total (was
+    26). Section-label smoke test: all new/changed content landed real
+    `Chapter N -- Title` labels, zero new `General` defaulting (still just
+    the same 8 pre-existing curriculum-PDF chunks, unrelated known gap).
+    `search()`-level recall verified directly for all 21 non-skip golden
+    questions: **21/21** hit their expected doc/page within top-5.
+    **Full end-to-end eval (confidence/route/citation) could not be
+    completed tonight** — Groq's daily 200k TPD quota was already
+    exhausted before this batch even started (199393/200000, then
+    199505/200000 on a second attempt ~10 minutes later), crashing
+    `eval_retrieval.py` on the very first `evaluate()` call both times.
+    Real end-to-end data exists for exactly 2 of the new/changed
+    questions (the two WiFi-related ones, run before the quota fully
+    closed) — the other 6 new confirmed-fact questions have verified
+    `search()`-level recall only; their `expect_band: answer` values are
+    the reasoned intended target, not a confirmed live number. **Re-run
+    the full eval once quota resets, before the actual demo** — same
+    caveat repeated for the third time this session now; this is the
+    single most load-bearing unresolved item heading into a demo.

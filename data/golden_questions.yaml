@@ -87,11 +87,32 @@ questions:
     # specific courses...along with the timings of classes and choice of
     # professors.") -> academic_system_ffcs.pdf Chapter 1, clause 1.1 (post-fix).
 
+  # 2026-07-31: WiFi moved from a pure out-of-scope proof case to a narrow, deliberate
+  # exception -- see the "confirmed facts" block below for why. Real end-to-end run (not
+  # projected): intent stays out_of_scope (classify_intent's own call), but confidence
+  # 0.821-0.834 across 2 runs now clears CONF_ANSWER_THRESHOLD, so it routes answer and
+  # cites it_services.pdf. Replaced with a genuinely-still-out-of-scope entry below
+  # (laptop hardware) so the guardrail-proof coverage this entry used to provide isn't lost.
   - q: "Can you reset my WiFi password, it's not connecting to the campus network?"
+    expect_intent: out_of_scope
+    expect_doc: it_services
+    expect_page: 1
+    expect_band: answer
+    # source: user-confirmed fact (not in data/vitbhopal_raw/), 2026-07-31 -> it_services.pdf
+    # Chapter 1, clause 1.1. Real run: route=answer, confidence 0.821-0.834 (2/2 runs).
+    # Caveat found in the same run, not fixed here: the LLM's answer expanded "CTS" to
+    # "Campus Technology Services (CTS)" -- an invented expansion not present in the source
+    # clause (which only ever says "CTS"), despite the system prompt's explicit rule against
+    # inventing unstated details. A real, observed grounding lapse worth a closer look later,
+    # not chased this pass since it wasn't part of the actual task.
+
+  - q: "Can you help me fix my laptop, it won't turn on?"
     expect_intent: out_of_scope
     expect_doc: null
     expect_page: null
     expect_band: triage
+    # source: n/a -- deliberate out-of-scope proof case (hardware ticket), same role the old
+    # WiFi entry used to serve. Real run: intent=out_of_scope, route=triage, confidence=0.501.
 
   - q: "Does the re-test policy for a missed exam still apply if the original circular has been superseded by a newer one?"
     expect_intent: exam_policy
@@ -102,12 +123,11 @@ questions:
 
   # 2026-07-30: three new authored docs (od_leave_policy.pdf, attendance_policy.pdf,
   # fee_scholarship.pdf) added for previously-zero-coverage intents. Content cross-checked
-  # against data/vitbhopal_raw/Raw Info.txt directly, not just the generated PDF text. Two
-  # facts in the raw source were genuinely ambiguous (OD-cap renewal period; whether the old
-  # attendance sliding-marks scale still applies) — both are stated as open/unconfirmed in
-  # the PDFs themselves rather than guessed, per explicit instruction. No golden entry below
-  # asks "how many ODs can I use before X" or similar, since that answer depends on exactly
-  # the unconfirmed renewal period.
+  # against data/vitbhopal_raw/Raw Info.txt directly, not just the generated PDF text.
+  # UPDATE 2026-07-31: the two gaps this comment originally described (OD-cap renewal period;
+  # whether the old attendance sliding-marks scale still applies) are now resolved — see the
+  # "confirmed facts" block further down. Left this comment in place as a record of what was
+  # once open, not because it's still accurate.
 
   - q: "Which email address do I use to request OD leave for a technical fest, and is there a cap on how many I can take?"
     expect_intent: od_leave_request
@@ -116,8 +136,7 @@ questions:
     expect_band: answer
     # source: Raw Info.txt line 431 ("...for OD you have to mail pc.bce@vitbhopal.ac.in and
     # also you can only get 5 ODs and also for events od can be given...") -> od_leave_policy.pdf
-    # Chapter 1, clauses 1.1-1.3. The renewal period for the 5-OD cap is NOT stated in the raw
-    # source and is written into the PDF as an open gap, not a guessed number.
+    # Chapter 1, clauses 1.1-1.3.
 
   - q: "What is the minimum attendance percentage I need to be eligible to sit my end-semester exam?"
     expect_intent: attendance_query
@@ -125,9 +144,7 @@ questions:
     expect_page: 1
     expect_band: answer
     # source: Raw Info.txt line 431 ("...for attendance you should have 75 percent above to
-    # give exam...") -> attendance_policy.pdf Chapter 1, clause 1.1. The same raw line's
-    # sliding-marks-scale claim ("it have been update now") is NOT confirmed and is written
-    # into clause 1.2 as unconfirmed, not asserted either way.
+    # give exam...") -> attendance_policy.pdf Chapter 1, clause 1.1.
 
   - q: "What is the B.Tech tuition fee for Group A under Category 3, and does Category 0 mean a full fee waiver?"
     expect_intent: fee_scholarship
@@ -171,3 +188,76 @@ questions:
     expect_band: answer
     # source: authored per explicit instruction (not in data/vitbhopal_raw/) -> hostel_facilities.pdf
     # Chapter 4, clauses 4.1-4.2 (Warden for minor issues, Chief Warden for serious/unresolved ones).
+
+  # 2026-07-31: batch of user-confirmed facts from a current student, replacing prior
+  # "unconfirmed" framing on two points and adding coverage for two new topics. None of this
+  # is in data/vitbhopal_raw/ -- cross-checked directly against Raw Info.txt and the new
+  # Raw Info 2.txt anyway, and neither mentions any of it. (Raw Info 2.txt itself turned out
+  # to be VIT *Vellore* blog content -- FFCS mechanics, Vellore room-counselling, Vellore mess
+  # menus, Riviera fest, VITEEE 2019 admissions -- not Bhopal-specific and not used here.)
+  # Accepted on the same trust basis as the escalation-chain content above (2026-07-30),
+  # authored directly per instruction, not scraped-and-verified.
+  # Full end-to-end confidence/route for the 6 entries below (everything except the WiFi
+  # entries above, which did complete) is NOT YET VERIFIED -- Groq's daily 200k TPD quota
+  # was exhausted (199393/200000) mid-batch tonight, same constraint hit before on
+  # 2026-07-30. expect_band values here are the reasoned intended target (single-fact
+  # lookup, clean rank-1 search() recall for all 6, verified directly), consistent with how
+  # the original 8-question set was scaffolded before its first eval run -- not a projected
+  # or fabricated confidence number. Re-run once quota resets, before the actual demo.
+
+  - q: "Does the 5-OD cap reset each semester, or is it a one-time total for my whole degree?"
+    expect_intent: od_leave_request
+    expect_doc: od_leave_policy
+    expect_page: 1
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> od_leave_policy.pdf Chapter 1, clause 1.3
+    # (rewritten from "renewal period not confirmed" to "renews each semester").
+    # search() recall verified: od_leave_policy p1 at rank 1 (0.6747).
+
+  - q: "What happens if a student's attendance in a course falls below 75%?"
+    expect_intent: attendance_query
+    expect_doc: attendance_policy
+    expect_page: 1
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> attendance_policy.pdf Chapter 1, clause 1.2
+    # (rewritten from the old sliding-marks-scale content, now removed entirely, to: debarred
+    # from that course's exam, must re-register, no makeup exam substitutes for the threshold).
+    # search() recall verified: attendance_policy p1 at rank 1 (0.6708).
+
+  - q: "Is a makeup exam available as a substitute if I got an F grade?"
+    expect_intent: certificate_request
+    expect_doc: examination_services
+    expect_page: 3
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> examination_services.pdf Chapter 3 (new),
+    # clause 3.4 (makeup exam held once a year, only as a supplementary-exam replacement for
+    # an F-grade result). search() recall verified: examination_services p3 at rank 1 (0.6783).
+
+  - q: "What does an F grade mean and how many marks is it?"
+    expect_intent: certificate_request
+    expect_doc: examination_services
+    expect_page: 3
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> examination_services.pdf Chapter 3 (new),
+    # clauses 3.1-3.2 (grading scale S/A/B/C/D/E/F/N; F = below 40 marks in the TEE).
+    # search() recall verified: examination_services p3 at rank 1 (0.7453).
+
+  - q: "What time do I need to be back in my hostel room by, and what happens if I'm late?"
+    expect_intent: hostel_issue
+    expect_doc: hostel_facilities
+    expect_page: 5
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> hostel_facilities.pdf Chapter 5 (Hostel
+    # Conduct Rules), new clause 5.3 (8:30 PM curfew, ID card confiscation; fine amount not
+    # confirmed, same unconfirmed-amount treatment as clauses 5.1/5.2). search() recall
+    # verified: hostel_facilities p5 at rank 1 (0.7023).
+
+  - q: "What does the 23BCE prefix in my registration number mean?"
+    expect_intent: general_info
+    expect_doc: academic_system_ffcs
+    expect_page: 2
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> academic_system_ffcs.pdf Chapter 2 (new),
+    # clauses 2.1-2.2 (batch/branch prefix + unique per-student number; 4-year-programme
+    # passout-year inference). search() recall verified: academic_system_ffcs p2 at rank 1
+    # (0.7369).
