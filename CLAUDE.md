@@ -93,6 +93,11 @@ data/golden_questions.yaml 25 eval questions with expected doc/page/band
   hardware tickets, cafeteria hours). The domain is campus operations:
   exams, attendance, OD/leave, hostel, fees, certificates, placement,
   library.
+- **This corpus is VIT Bhopal, B.Tech CSE (the "BCE" programme) specifically**
+  — the OD contact email, curriculum PDF, and fee/attendance figures are all
+  BCE-scoped. Other branches and M.Tech are out of scope for this build; that's
+  a stated corpus boundary, not something the agent should imply full coverage
+  of by answering confidently for other programmes.
 - Don't let the demo UI's Relevance/Jailbreak guardrails stand in for the
   confidence model — they're an input filter, not grounding. Keep both,
   don't conflate them.
@@ -501,3 +506,42 @@ to change daily.
     testing off). Re-run the full sweep 2-3x once quota resets (check
     timing) or before final demo rehearsal, whichever comes first — **do
     not skip this before the actual demo.**
+  - **Corpus expanded to cover `od_leave_request`, `attendance_query`, and
+    `fee_scholarship` — previously zero-coverage intents — 2026-07-30.**
+    Three new authored docs: `od_leave_policy.pdf`, `attendance_policy.pdf`,
+    `fee_scholarship.pdf` (same plain-text/`Chapter N — Title` structure as
+    the other authored docs). Content was cross-checked directly against
+    `data/vitbhopal_raw/Raw Info.txt`'s new paragraph, not invented. Two real
+    ambiguities surfaced in that raw text and were **not** guessed past —
+    written into the PDFs themselves as open/unconfirmed, per explicit
+    instruction: (1) the "5 ODs" cap has no stated renewal period in the raw
+    source (per-semester / per-year / total-across-degree are all equally
+    plausible reads) — `od_leave_policy.pdf` clause 1.3 states the cap and
+    says the renewal period isn't confirmed, rather than picking one; (2) the
+    raw text describes an old attendance sliding-marks scale then says "it
+    have been update now" without ever stating the new scheme — the 75%
+    exam-eligibility threshold is stated as confirmed (clause 1.1), but the
+    old marks-by-attendance-band scale is written as "found in older
+    material, current status unconfirmed" (clause 1.2), not asserted as
+    still-active or fully superseded. No `golden_questions.yaml` entry asks
+    the exact "how many ODs before X" question for the same reason.
+    Re-ingested full corpus (wiped `services/api/qdrant_data/` first): **23
+    chunks** total (was 19) — all 4 new chunks landed with real `Chapter N —
+    Title` section labels, zero `General` defaulting, confirmed via direct
+    Qdrant payload scroll. `search()`-level recall checked directly (not
+    through the full LLM/citation path, to avoid burning Groq's daily quota
+    again per the note above) for all 4 new golden questions — all 4 hit
+    their expected doc/page in the top-5. Full end-to-end eval (citation
+    accuracy, confidence band) against the new entries not yet run — same
+    Groq-quota constraint, same "before final demo" caveat as above applies
+    to these too now.
+    **Also found and fixed while doing this pass:** the same `data/`
+    directories had accumulated real-world clutter that isn't corpus
+    material at all — six blank admission/legal forms (ragging affidavit,
+    day-boarder application, two hostel-vacating consent forms, an
+    undertaking form, a DPDPA consent form; one of them explicitly for "VIT,
+    Vellore," the wrong campus) moved out of `data/seed_pdfs/` into
+    `data/reference_only/` so it's unambiguous at a glance they're not part
+    of the ingested corpus, and one file that was never campus material to
+    begin with — a personal IndiGo flight e-ticket (PNR, seat, masked card
+    digits) — deleted outright rather than just excluded.

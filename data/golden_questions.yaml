@@ -99,3 +99,48 @@ questions:
     expect_page: null
     expect_band: clarify
     skip: "needs a second, deliberately-superseded document to actually trigger CONFLICTING_SOURCES/STALE_DOCUMENT — no doc in the corpus is tagged superseded yet. Entry documents the intended case; eval_retrieval.py skips executing it."
+
+  # 2026-07-30: three new authored docs (od_leave_policy.pdf, attendance_policy.pdf,
+  # fee_scholarship.pdf) added for previously-zero-coverage intents. Content cross-checked
+  # against data/vitbhopal_raw/Raw Info.txt directly, not just the generated PDF text. Two
+  # facts in the raw source were genuinely ambiguous (OD-cap renewal period; whether the old
+  # attendance sliding-marks scale still applies) — both are stated as open/unconfirmed in
+  # the PDFs themselves rather than guessed, per explicit instruction. No golden entry below
+  # asks "how many ODs can I use before X" or similar, since that answer depends on exactly
+  # the unconfirmed renewal period.
+
+  - q: "Which email address do I use to request OD leave for a technical fest, and is there a cap on how many I can take?"
+    expect_intent: od_leave_request
+    expect_doc: od_leave_policy
+    expect_page: 1
+    expect_band: answer
+    # source: Raw Info.txt line 431 ("...for OD you have to mail pc.bce@vitbhopal.ac.in and
+    # also you can only get 5 ODs and also for events od can be given...") -> od_leave_policy.pdf
+    # Chapter 1, clauses 1.1-1.3. The renewal period for the 5-OD cap is NOT stated in the raw
+    # source and is written into the PDF as an open gap, not a guessed number.
+
+  - q: "What is the minimum attendance percentage I need to be eligible to sit my end-semester exam?"
+    expect_intent: attendance_query
+    expect_doc: attendance_policy
+    expect_page: 1
+    expect_band: answer
+    # source: Raw Info.txt line 431 ("...for attendance you should have 75 percent above to
+    # give exam...") -> attendance_policy.pdf Chapter 1, clause 1.1. The same raw line's
+    # sliding-marks-scale claim ("it have been update now") is NOT confirmed and is written
+    # into clause 1.2 as unconfirmed, not asserted either way.
+
+  - q: "What is the B.Tech tuition fee for Group A under Category 3, and does Category 0 mean a full fee waiver?"
+    expect_intent: fee_scholarship
+    expect_doc: fee_scholarship
+    expect_page: 1
+    expect_band: answer
+    # source: Raw Info.txt lines 440-451 (B.Tech fee table, Group A/B/C x Category 0-5) ->
+    # fee_scholarship.pdf Chapter 1, clauses 1.1-1.3.
+
+  - q: "How many students received the GV School Development Programme (GVSDP) scholarship in 2025-2026, and what was the total amount disbursed?"
+    expect_intent: fee_scholarship
+    expect_doc: fee_scholarship
+    expect_page: 2
+    expect_band: answer
+    # source: Raw Info.txt line 457 ("VITEEE Scholarship given under GV School Development
+    # Programme (GVSDP) ... 485 ... 3,14,27,500") -> fee_scholarship.pdf Chapter 2, clause 2.1.
