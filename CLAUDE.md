@@ -104,8 +104,9 @@ data/golden_questions.yaml 25 eval questions with expected doc/page/band
 Update this section as you go — it's the one part of this file that's meant
 to change daily.
 
-- **Phase:** Phase 3 (Inspector) complete. Not started: Phase 4
-  (triage/tickets), Phase 5 (approval gateway).
+- **Phase:** Phase 3 (Inspector) complete. Phase 4 (triage/tickets): DB layer
+  (schema + migration) verified live 2026-07-29 — see below. Rest of Phase 4
+  (triage/ticket nodes) not started. Not started: Phase 5 (approval gateway).
 - **Last gate passed:** Phase 3 — `/dev-chat` renders all five sidebar
   components (`ConfidenceGauge`, `SourceCards`, `PathBreadcrumbs`,
   `ConversationContext`, `Guardrails`) against real live responses, not the
@@ -170,15 +171,46 @@ to change daily.
     still the unmodified airline demo — real chat UI + Inspector panel is
     deferred to Phase 3, not started. `dev-chat` is a throwaway test page,
     not the real frontend.
-  - No Docker on this dev machine — Qdrant runs in `qdrant-client`'s
-    embedded on-disk mode (`services/api/qdrant_data/`, gitignored) instead
-    of the docker service. Swaps to Docker automatically once `QDRANT_URL`
-    is set.
-  - `ui/package.json`'s `dev:server` script still points at the deleted
-    `python-backend/` and fails on `npm run dev` (harmless — `dev:next`
-    still starts fine); not fixed yet.
-  - Postgres, `docker-compose.yml`, and the rest of Phase 0 (steps 1/3/4)
-    are not done — Phase 1 didn't need them.
+  - Docker Desktop is running on this dev machine as of 2026-07-29 —
+    `docker compose up -d` brings up `postgres:16` and `qdrant/qdrant`.
+    Qdrant still runs in `qdrant-client`'s embedded on-disk mode
+    (`services/api/qdrant_data/`, gitignored) because `QDRANT_URL` in
+    `.env` is still empty — the docker Qdrant container is up but unused
+    until that's set to `http://localhost:6333`.
+  - **Postgres/migration — verified live 2026-07-29.** `alembic upgrade
+    head` applied `dbaea2ba8ac2` (initial schema) against the real
+    docker-compose Postgres, not just `py_compile`. Confirmed via
+    `information_schema.tables`: all 11 schema tables present
+    (`documents`, `doc_chunks`, `students`, `staff`, `conversations`,
+    `traces`, `messages`, `tickets`, `ticket_events`, `approvals`,
+    `corrections`) plus `alembic_version`. Append-only trigger confirmed
+    firing for real, not just read from the migration source: inserted a
+    row into `traces`, then both `UPDATE` and `DELETE` against it raised
+    `<table> is append-only: <OP> not allowed` from
+    `reject_update_delete()`, and the row was unchanged after both
+    attempts. Same trigger is bound to `ticket_events` and `approvals`.
+  - **The real venv is `campus-helpdesk-agent\venv\`** (this repo root),
+    not `..\.venv\` one level up at the `Campus Helpdesk Triage Agent\`
+    parent folder — that one's a stray empty venv from earlier setup,
+    still present as of 2026-07-29, and running anything against it fails
+    with missing packages. `dev:server` below always launches the correct
+    one automatically, so this only bites you running uvicorn/alembic/pip
+    by hand — check you're pointing at `venv\Scripts\` inside
+    `campus-helpdesk-agent\` first if a manual command can't find a
+    package that's clearly installed.
+  - `ui/package.json`'s `dev:server` script — fixed 2026-07-29. Was
+    pointing at the deleted `python-backend/`. Now
+    `cd .. && venv\Scripts\python.exe -m uvicorn services.api.main:app
+    --reload --host 0.0.0.0 --port 8000`, run from `ui/`. Two things that
+    bit us getting here, worth knowing if this breaks again: (1)
+    `main.py` uses absolute imports (`from services.api.graph...`), so
+    uvicorn must be launched with the repo root as cwd, not from inside
+    `services/api/`; (2) npm's default Windows script-shell is `cmd.exe`,
+    which won't resolve a relative executable path with forward slashes
+    as the command token (`venv/Scripts/python.exe` fails with `'venv' is
+    not recognized`) — needs backslashes. `npm run dev` from `ui/` now
+    starts both servers standalone, verified from a fresh shell (not just
+    the ad hoc background commands used earlier).
   - `data/seed_pdfs/examination_regulations_PLACEHOLDER.pdf` is synthetic,
     flagged in the file itself, needs replacing with real university PDFs
     before the demo.
