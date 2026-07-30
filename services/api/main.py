@@ -9,11 +9,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+import json
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from services.api.db.tickets import list_tickets
+from services.api.gateway.approval import decide, execute, list_pending
 from services.api.graph.build import app as agent_graph
 from services.api.graph.build import initial_state
 from services.api.graph.inspector import InspectorPayload, build_inspector_payload
@@ -68,3 +71,44 @@ async def admin_tickets(
          "created_at": t["created_at"].isoformat()}
         for t in tickets
     ]
+
+
+class DecideRequest(BaseModel):
+    approved: bool
+    staff_id: str | None = None
+
+
+@app.get("/api/approvals")
+async def approvals_pending() -> list[dict]:
+    rows = await list_pending()
+    return [
+        {
+            "proposal_id": str(r["proposal_id"]),
+            "ticket_id": str(r["ticket_id"]) if r["ticket_id"] else None,
+            "action_type": r["action_type"],
+            "risk_tier": r["risk_tier"],
+            "payload": json.loads(r["payload"]) if isinstance(r["payload"], str) else r["payload"],
+            "created_at": r["created_at"].isoformat(),
+        }
+        for r in rows
+    ]
+
+
+@app.post("/api/approvals/{proposal_id}/decide")
+async def approvals_decide(proposal_id: str, request: DecideRequest) -> dict:
+    try:
+        status = await decide(
+            proposal_id=proposal_id, approved=request.approved, staff_id=request.staff_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return {"proposal_id": proposal_id, "status": status}
+
+
+@app.post("/api/approvals/{proposal_id}/execute")
+async def approvals_execute(proposal_id: str) -> dict:
+    try:
+        result = await execute(proposal_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return {"proposal_id": proposal_id, "result": result}

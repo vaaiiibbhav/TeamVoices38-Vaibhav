@@ -73,6 +73,15 @@ export interface Ticket {
   created_at: string
 }
 
+export interface PendingProposal {
+  proposal_id: string
+  ticket_id: string | null
+  action_type: string
+  risk_tier: string
+  payload: Record<string, unknown>
+  created_at: string
+}
+
 export interface InspectorPayload {
   trace_id: string
   confidence: number

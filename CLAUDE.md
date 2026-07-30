@@ -104,17 +104,54 @@ data/golden_questions.yaml 25 eval questions with expected doc/page/band
 Update this section as you go — it's the one part of this file that's meant
 to change daily.
 
-- **Phase:** Phase 3 (Inspector) complete. Phase 4 (triage/tickets) complete
-  as of 2026-07-29 — DB layer, ticket creation, and admin dashboard all
-  verified live in a real browser via Playwright MCP (see below), not just
-  compiled/curled. Deliberately still out of scope for Phase 4 (not
-  blockers, just not built): no route exposes `ticket_id` back to the chat
-  client or Inspector; no staff auth on `/admin` or `/api/admin/tickets`;
-  no ticket-detail/status-update UI, list-only. Now starting: Phase 5
-  (approval gateway) — `gateway/policy.py` risk tiers, `gateway/
-  approval.py`'s propose/decide/execute with the proposal_id-only executor
-  design from the blueprint, and the staff approval inbox UI.
-- **Last gate passed:** Phase 4 — `/admin` browser-verified live 2026-07-29
+- **Phase:** Phase 3 (Inspector) and Phase 4 (triage/tickets) complete.
+  Phase 5 (approval gateway) complete as of 2026-07-29 — `gateway/policy.py`
+  risk tiers, `gateway/approval.py`'s propose/decide/execute (proposal_id-
+  only executor, payload-hash verified, append-only event ledger),
+  `triage` → `propose_action` wiring for `od_leave_request` →
+  `calendar_event`, HTTP routes (`GET /api/approvals`, `POST /api/approvals/
+  {id}/decide`, `POST /api/approvals/{id}/execute`), and a bare approval
+  inbox at `/admin/approvals` — all browser/live-verified, not read-through
+  (see gate below). Deliberately out of scope for Phase 5 (not blockers,
+  named in build_spec as later phases): no real Composio/SMTP execution
+  (`_run_action` in `approval.py` simulates and returns a result dict —
+  Phase 7); no staff auth on any `/admin/*` route or `/api/approvals/*`
+  (`decided_by` is always `null` — same gap as `/admin` tickets); only one
+  action type (`calendar_event`) is ever proposed — `send_email`/
+  `grade_change`/`fee_change` exist in `policy.py`'s risk table for
+  completeness against the blueprint but nothing calls them.
+- **Last gate passed:** Phase 5 — proposed via a real `/api/chat/message`
+  call (an off-corpus `od_leave_request` question landed at 0.548
+  confidence, routed `triage`, created a real `tickets` row, then
+  `propose_action` wrote a real `approvals` PENDING row with a real
+  `calendar_event` payload). Approved and executed **from an actual
+  browser**, not a script: navigated to `/admin/approvals`, saw 5 real
+  PENDING proposals render, clicked Approve on one — it called `decide()`
+  then `execute()` for real, the row vanished from the inbox (5→4), and
+  `psql` confirmed three real append-only rows for that `proposal_id`
+  (PENDING → APPROVED → EXECUTED with a `result`). Clicked Reject on a
+  second proposal — vanished (4→3), `psql` confirmed PENDING → REJECTED
+  with no `execute` call and no `result`. Browser console clean, zero
+  errors, across both clicks. Guardrails also exercised directly (not just
+  the happy path): `decide()` on an already-`EXECUTED` proposal raises
+  `ValueError`; `execute()` on a still-`PENDING` (never-approved) proposal
+  raises `ValueError` — the non-negotiable ("no side-effecting action
+  executes without a human approval row") holds under misuse, not just
+  the intended sequence.
+  **Reload gotcha hit and fixed mid-session:** the `--reload` uvicorn dev
+  server silently stopped picking up file changes — worker process was
+  1+ hour stale despite edits, so an early triage-routed test ran against
+  pre-Phase-5 code and (correctly, given stale code) showed no
+  `propose_action` in the path. Fixed by killing the whole reloader+worker
+  process tree and relaunching. Don't trust `--reload` on this Windows
+  setup without checking the worker's actual start time against your last
+  edit if a change doesn't seem to take effect.
+  **Corpus note:** getting a real `od_leave_request` question below 0.55
+  confidence took several rephrasing attempts — the single-doc corpus's
+  Chapter 6 (OD Leave) is semantically sticky, so most OD phrasings land in
+  `answer` or `clarify`, not `triage`. Not a bug, same single-doc-corpus
+  limitation already tracked below for Phase 6.
+- **Previous gate:** Phase 4 — `/admin` browser-verified live 2026-07-29
   via Playwright MCP (see full detail below): SLA countdown re-renders
   live off the 1s interval (confirmed two snapshots apart, e.g. `OVERDUE by
   2h 54m` → `2h 55m`), department/priority/status filters actually refetch
@@ -131,7 +168,7 @@ to change daily.
   data-fetching `useEffect`. Changed to `useState(true)` — first paint now
   shows `Loading...` instead of the misleading empty state, confirmed by
   re-navigating and snapshotting immediately post-navigation.
-- **Previous gate:** Phase 3 — `/dev-chat` renders all five sidebar
+- **Earlier gate:** Phase 3 — `/dev-chat` renders all five sidebar
   components (`ConfidenceGauge`, `SourceCards`, `PathBreadcrumbs`,
   `ConversationContext`, `Guardrails`) against real live responses, not the
   `EMPTY_INSPECTOR` fallback: a slot-missing OD-leave question showed 71%
@@ -178,10 +215,12 @@ to change daily.
     still one PDF tagged `exam_policy` only, so filtering by intent-as-doc_type
     would break retrieval for other intents until more docs are ingested
     with real per-intent `doc_type` coverage.
-  - `propose_action` / `await_approval` nodes exist in `build.py` (per
-    build_spec's Phase 2 node list) but aren't wired into any edge — no
-    Phase 2 intent decides when a side-effecting action should be proposed;
-    real wiring is Phase 5's approval gateway.
+  - `propose_action` / `await_approval` nodes — wired 2026-07-29 (Phase 5,
+    see gate above). `triage` conditionally routes to `propose_action` only
+    for `intent == "od_leave_request" and slots.get("event_date")`; every
+    other triage path still goes straight to `END`. Only one action type is
+    ever proposed this way (`calendar_event`) — no other intent/node
+    proposes an action yet.
   - `clarify` / `triage` node messages are hardcoded templates, not
     LLM-generated — consistent with "hardcode anything that isn't
     retrieval."

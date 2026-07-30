@@ -43,6 +43,25 @@ async def _latest(pool, proposal_id: str):
     return row
 
 
+async def list_pending() -> list[dict]:
+    """Latest row per proposal_id, filtered to PENDING — approvals is
+    append-only, so "current status" isn't a column, it's the most recent
+    row for that proposal_id."""
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """
+        SELECT * FROM (
+            SELECT DISTINCT ON (proposal_id) *
+            FROM approvals
+            ORDER BY proposal_id, created_at DESC
+        ) latest
+        WHERE status = 'PENDING'
+        ORDER BY created_at ASC
+        """
+    )
+    return [dict(row) for row in rows]
+
+
 async def propose(*, action_type: str, ticket_id: str | None, payload: dict) -> str:
     proposal_id = str(uuid.uuid4())
     pool = await get_pool()
