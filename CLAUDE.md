@@ -98,6 +98,17 @@ data/golden_questions.yaml 25 eval questions with expected doc/page/band
   BCE-scoped. Other branches and M.Tech are out of scope for this build; that's
   a stated corpus boundary, not something the agent should imply full coverage
   of by answering confidently for other programmes.
+- **`od_leave_request`'s slot schema assumes every question in that intent is
+  a leave submission** — `slots.py`'s `REQUIRED_SLOTS["od_leave_request"] =
+  ["event_date", "event_reason"]` applies unconditionally, even to a pure
+  policy-lookup question ("which email do I use, is there a cap") that isn't
+  filing anything. `route_after_evaluate` checks `missing_slots` before
+  confidence, so these questions get diverted to `clarify`'s hardcoded
+  no-citation template without ever reaching the cited answer. Traced
+  2026-07-30 (see below) — not fixed. Don't add more OD-leave golden
+  questions phrased as policy lookups without knowing this will misroute
+  them; if you fix this, it needs the intent split into two shapes (lookup
+  vs. actual request) or a way to tell them apart before slot-gating.
 - Don't let the demo UI's Relevance/Jailbreak guardrails stand in for the
   confidence model — they're an input filter, not grounding. Keep both,
   don't conflate them.
@@ -545,3 +556,60 @@ to change daily.
     of the ingested corpus, and one file that was never campus material to
     begin with — a personal IndiGo flight e-ticket (PNR, seat, masked card
     digits) — deleted outright rather than just excluded.
+  - **Full 14-question eval run, 2026-07-30/31 — Docker/Postgres/Qdrant
+    genuinely up, real numbers.** recall@5 **12/12**, citation accuracy
+    **11/12**, band match **12/13** (13 executable; the 14th, superseded-
+    circular, still `skip`ped, no doc tagged superseded yet). 3 of the 4
+    new `od_leave_request`/`attendance_query`/`fee_scholarship` questions
+    passed cleanly; the OD-leave "which email" question is the sole
+    failure across the whole run (both the citation and band misses trace
+    to it).
+    **Traced that failure — not a citation-formatting bug.** Suspected at
+    first it might be a recurrence of the full-width-bracket or
+    sentence-split bugs fixed 2026-07-30 (see above); it isn't. Captured
+    the raw LLM answer directly (bypassing the graph) 3x: clean ASCII
+    `[1]` every time, correct single citation, nothing for
+    `enforce_citations` to strip. Ran the **full graph** 3x instead:
+    identical result all 3 runs (deterministic, not intermittent) —
+    `route=clarify`, `reason_codes=['MISSING_SLOT']`, answer is the
+    slot-prompt template ("Could you provide... event_date?"), which
+    carries zero citation markers. Root cause is the intent-design gap
+    documented above under "What NOT to do": `classify_intent` correctly
+    tags the question `od_leave_request`, but `REQUIRED_SLOTS` demands
+    `event_date`/`event_reason` even for a policy lookup, and
+    `route_after_evaluate` checks `missing_slots` before confidence — so
+    the question never reaches a cited answer at all. Not fixed this
+    pass, per instruction.
+  - **Escalation-chain content added to `od_leave_policy.pdf` and
+    `hostel_facilities.pdf`, 2026-07-31.** `od_leave_policy.pdf` +Chapter 2
+    (Escalation Path: unresolved issue -> Program Chair (PC) ->
+    Controller of Examinations (COE) -> Dean of Academics, final
+    authority; PC contacts for branches other than BCE explicitly named
+    as unconfirmed). `hostel_facilities.pdf` +Chapter 4 (Hostel Grievance
+    Escalation: minor issues, e.g. room changes, -> Warden; serious/
+    unresolved -> Chief Warden) and +Chapter 5 (Hostel Conduct Rules:
+    parents not permitted inside hostel premises with a fine, amount
+    unconfirmed; a separate PDA fine exists, hostel-specific-vs-campus-
+    wide scope unconfirmed). **Unlike the rest of this corpus, this
+    content was not cross-checked against `data/vitbhopal_raw/`** — the
+    escalation chain and Warden/Chief-Warden split aren't present
+    anywhere in the scraped raw material (`Raw Info.txt` or the 5
+    screenshots/webp); authored directly per explicit instruction, on the
+    same trust basis as the already-documented `pc.bce@vitbhopal.ac.in`
+    contact, not derived from the crawled source. The fine amounts and
+    the PDA rule's scope genuinely are open gaps per the raw material and
+    are written into the PDF as unconfirmed, same treatment as the OD-cap
+    renewal period and the attendance marks-scale gap above.
+    Re-ingested full corpus (wiped `services/api/qdrant_data/` first):
+    **26 chunks** total (was 23) — `od_leave_policy.pdf` 1->2 chunks,
+    `hostel_facilities.pdf` 3->5 chunks. Section-label smoke test: both
+    new pages landed real `Chapter N -- Title` labels, zero `General`
+    defaulting (the 8 pre-existing `General` chunks are all the
+    tabular curriculum PDF, unrelated known gap). `search()`-level recall
+    checked directly for both new fact areas (not the full LLM path, to
+    avoid burning Groq's daily quota) — both hit their expected doc/page
+    at rank 1. 2 new `golden_questions.yaml` entries added, for the
+    escalation chain and the Warden/Chief-Warden split only — no entry
+    for the fine amounts or the PDA scope, per the same unconfirmed-gap
+    policy. Full end-to-end eval (citation accuracy, confidence band)
+    against these 2 new entries not yet run.

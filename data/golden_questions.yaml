@@ -144,3 +144,30 @@ questions:
     expect_band: answer
     # source: Raw Info.txt line 457 ("VITEEE Scholarship given under GV School Development
     # Programme (GVSDP) ... 485 ... 3,14,27,500") -> fee_scholarship.pdf Chapter 2, clause 2.1.
+
+  # 2026-07-30: escalation-chain content added to od_leave_policy.pdf (Chapter 2) and
+  # hostel_facilities.pdf (Chapters 4-5). Unlike the rest of this corpus, this content was NOT
+  # cross-checked against data/vitbhopal_raw/ -- the escalation chain (PC -> COE -> Dean) and
+  # the Warden/Chief-Warden split are not present anywhere in the scraped raw material (Raw
+  # Info.txt or the 4 screenshots); they were authored directly per explicit instruction, on
+  # the same trust basis as the already-documented pc.bce@vitbhopal.ac.in contact. The fine
+  # amounts (parents-in-hostel, PDA) and the PDA rule's campus-wide-vs-hostel-specific scope
+  # genuinely are open gaps per the raw material and are written into the PDF as unconfirmed --
+  # no golden entry below asks for a fine amount or the PDA scope, same treatment as the OD-cap
+  # renewal period and the attendance marks-scale gap above.
+
+  - q: "If my OD leave request isn't resolved by my Program Chair, who do I escalate it to next?"
+    expect_intent: od_leave_request
+    expect_doc: od_leave_policy
+    expect_page: 2
+    expect_band: answer
+    # source: authored per explicit instruction (not in data/vitbhopal_raw/) -> od_leave_policy.pdf
+    # Chapter 2, clauses 2.1-2.2 (PC -> COE -> Dean of Academics, in that order).
+
+  - q: "For a minor hostel issue like a room change, should I go to the Warden or the Chief Warden?"
+    expect_intent: hostel_issue
+    expect_doc: hostel_facilities
+    expect_page: 4
+    expect_band: answer
+    # source: authored per explicit instruction (not in data/vitbhopal_raw/) -> hostel_facilities.pdf
+    # Chapter 4, clauses 4.1-4.2 (Warden for minor issues, Chief Warden for serious/unresolved ones).
