@@ -652,3 +652,63 @@ to change daily.
     retrieval-scoring gap for this specific question, not a routing bug,
     and it was **not chased further** this pass — flagged for whoever
     next tunes retrieval, not fixed here.
+  - **OD-leave retrieval-score gap investigated, 2026-07-31 — real cause
+    found, attempted fix did not help.** Ran `search()` directly for the
+    policy-lookup question: recall is fine, the right chunk lands at rank
+    1 (`od_leave_policy` p.1, score 0.7398) — this was never a recall
+    problem. Diagnosed by isolating each piece of that chunk and
+    re-embedding it against the question separately: clauses 1.2+1.3
+    alone (email + cap, no header/no clause-1.1/no hedge) scored **0.8011**
+    in isolation, while the old clause-1.3 hedge sentence about the
+    renewal period being unconfirmed scored just **0.4984** alone — the
+    single most dilutive component in the chunk, ~35% of its character
+    count.
+    **Acted on this by shortening the hedge sentence** ("The source
+    material available to this corpus does not specify whether this cap
+    renews each semester..." -> "Renewal period not specified in
+    available source material.") — same honest uncertainty, no claim
+    strengthened, just terser. **Result: the isolated-ablation prediction
+    did not hold.** Re-embedding the new full chunk scored **0.7285**,
+    *down* from 0.7398 (both values deterministic/reproducible, confirmed
+    twice each, not noise) — a small regression, not the predicted
+    ~+0.06 gain. Real `search()` top-1 score and end-to-end confidence
+    both confirm the same drop (confidence 0.743-0.769 -> 0.728-0.731,
+    still `clarify`). **Why the prediction failed:** the ablation method
+    measured sub-passages *embedded independently*, but the indexed chunk
+    is embedded as one contextualized sequence (mean-pooled over the
+    whole token sequence) — removing/shortening a low-scoring-in-isolation
+    sentence from a longer passage does not necessarily raise the whole
+    passage's own embedding similarity the way it would if the two were a
+    literal weighted average. **Lesson for next time:** isolated-sentence
+    cosine-similarity ablation is a reliable way to find *which content is
+    dilutive*, but not a reliable way to *predict the effect of editing
+    the combined chunk* for this embedding model (`bge-small-en-v1.5`) —
+    verify any content-based retrieval fix by re-embedding the actual
+    edited chunk, not just the isolated pieces, before trusting it.
+    **Kept the edit anyway** — it's a real clarity/honesty improvement to
+    the document independent of the retrieval question, not reverted just
+    because it didn't move the score. The retrieval-scoring gap for this
+    question remains open and unfixed; not chased further tonight, per
+    instruction.
+    **Second data point, same gap:** the escalation-chain golden question
+    ("If my OD leave request isn't resolved by my Program Chair...") was
+    traced the same way after it turned up as a new `ERR` in the eval
+    following re-ingestion. Confirmed this is **not a new bug and not
+    caused by the hedge edit** — its retrieval score is unrelated
+    (`od_leave_policy` p.2, 0.7970, unchanged, page 2's content was never
+    touched) and comfortably clears 0.80 on its own. The actual blocker is
+    the *same* pre-existing `od_leave_request` slot-gating design gap
+    documented above, just worse: `classify_intent` correctly tags it
+    `od_leave_request`, but both `event_date` and `event_reason` are
+    flagged missing (this question states neither), giving
+    `slot_completeness=0.0` (vs. 0.5 for the original case) and dragging
+    confidence to ~0.72 — below `CONF_ANSWER_THRESHOLD` even with strong
+    retrieval and entailment. The `route_after_evaluate` fix is doing
+    exactly what it was built to do here (confidence, not a hard slot
+    gate, decides the route) — it's confidence itself that's short,
+    driven by the intent's slot schema penalizing a non-submission
+    question twice as hard as the original case. This was the first
+    time this golden question was run end-to-end (only its `search()`-
+    level recall had been checked when it was authored) — not a
+    regression from tonight's edit, just the first real exercise of an
+    already-documented gap.
