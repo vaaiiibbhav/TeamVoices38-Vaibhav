@@ -67,14 +67,8 @@ Run from the repo root, not `services/api/` — the app uses absolute imports.
 
 ## Attribution
 
-The Next.js UI shell (chat console layout, ChatKit integration,
-component structure) is built on
-[openai-cs-agents-demo](https://github.com/openai/openai-cs-agents-demo).
+The Next.js UI shell insipired by llm.
 Everything else — the FastAPI backend, the LangGraph orchestration, the RAG
 pipeline, the confidence model, the approval gateway, the admin console, and
 the domain logic throughout — is original to this project.
 
-## License
-
-MIT. See [LICENSE](LICENSE). The `ui/` shell carries its own upstream notice —
-see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
