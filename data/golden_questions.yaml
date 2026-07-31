@@ -261,3 +261,38 @@ questions:
     # clauses 2.1-2.2 (batch/branch prefix + unique per-student number; 4-year-programme
     # passout-year inference). search() recall verified: academic_system_ffcs p2 at rank 1
     # (0.7369).
+
+  # 2026-07-31: OD leave (attendance credit, PC-approved) vs. leaving campus (physical
+  # exit, Proctor-approved gate pass) clarified as two independent processes -- confirmed
+  # directly by the student after Raw Info.txt's new appended passage (proctor/gate-pass
+  # text right after the OD circular quote) turned out genuinely ambiguous on its own: it
+  # never mentions PC/COE/Dean and never uses escalation language, so it could have read as
+  # either "same process, extra hostel step" or "two separate processes" -- asked rather
+  # than guessed. The student's answer was unambiguous: OD only grants attendance credit
+  # and does NOT authorize leaving campus; a gate pass (Proctor approval + parental
+  # permission -> hostel office) is the separate, required authorization to physically
+  # exit, needed even for a PC-approved OD event. Authored as od_leave_policy.pdf +Chapter
+  # 3 and hostel_facilities.pdf +Chapter 6, cross-referencing each other. Both questions
+  # below have REAL end-to-end confirmation (not just search() recall) -- run directly
+  # against the live server before being added here.
+
+  - q: "Is a gate pass the same thing as OD leave?"
+    expect_intent: general_info
+    expect_doc: od_leave_policy
+    expect_page: 3
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> od_leave_policy.pdf Chapter 3 (new),
+    # clauses 3.1-3.3. Real run: route=answer, confidence=0.873, cites both
+    # od_leave_policy p3 [1] and hostel_facilities p6 [2] (reason_codes=CONFLICTING_SOURCES,
+    # expected -- the two chapters are close in retrieval score by design, since they
+    # cross-reference the same distinction).
+
+  - q: "Who approves a hosteler leaving campus, and what do they need to get a gate pass?"
+    expect_intent: hostel_issue
+    expect_doc: hostel_facilities
+    expect_page: 6
+    expect_band: answer
+    # source: user-confirmed fact, 2026-07-31 -> hostel_facilities.pdf Chapter 6 (new),
+    # clauses 6.1-6.3 (Proctor approval + parental permission -> hostel-office gate pass).
+    # Real run: route=answer, confidence=0.901, single clean citation, all reason codes
+    # clear.
