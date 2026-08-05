@@ -11,7 +11,7 @@ it wants to take an action (send an email, book a slot), a staff member has
 to approve it first — the model never has a direct path to the send/execute
 call.
 
-https://drive.google.com/drive/folders/1fWq71IottuZB_HyozYZVDLNBOK3awNzo?usp=drive_link
+https://drive.google.com/file/d/15LtQr2D734r5H_5LYQpEc85Qbnd-awy2/view?usp=drive_link
 
 ## Why it's built this way
 
