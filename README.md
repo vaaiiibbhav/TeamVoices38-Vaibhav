@@ -11,6 +11,8 @@ it wants to take an action (send an email, book a slot), a staff member has
 to approve it first — the model never has a direct path to the send/execute
 call.
 
+https://drive.google.com/drive/folders/1fWq71IottuZB_HyozYZVDLNBOK3awNzo?usp=drive_link
+
 ## Why it's built this way
 
 - **Every factual sentence carries a citation** — document, page, section. A
